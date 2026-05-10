@@ -4,14 +4,13 @@ RUN apk add --no-cache openssl libc6-compat bash
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
-ENV NODE_ENV=development
 COPY . .
-RUN pnpm install --no-frozen-lockfile --prod=false
+RUN pnpm install --no-frozen-lockfile
 RUN cd packages/database && pnpm exec prisma generate --schema prisma/platform.prisma && pnpm exec prisma generate --schema prisma/tenant.prisma
 RUN pnpm --filter @pixeesite/admin build
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# Push DB schema then start Next.js
+# Push DB schema then start
 CMD ["sh", "-c", "cd /app/packages/database && pnpm exec prisma db push --schema prisma/platform.prisma --skip-generate --accept-data-loss && cd /app && pnpm --filter @pixeesite/admin start"]
