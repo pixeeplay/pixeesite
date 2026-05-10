@@ -44,11 +44,14 @@ export function DomainsClient({ orgSlug }: { orgSlug: string }) {
     load();
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setShowNew(true)}>+ Domaine</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="🌐" title="Domaines"
       desc="Connecte ton propre nom de domaine (avec SSL automatique)"
-      actions={<button style={btnPrimary} onClick={() => setShowNew(true)}>+ Domaine</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : items.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: 48 }}>

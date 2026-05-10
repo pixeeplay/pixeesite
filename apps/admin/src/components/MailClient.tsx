@@ -32,11 +32,14 @@ export function MailClient({ orgSlug }: { orgSlug: string }) {
     load();
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setShowNew(true)}>+ Boîte mail</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="✉️" title="Webmail"
       desc="Connecte tes boîtes IMAP/SMTP — envoie et reçois depuis le dashboard"
-      actions={<button style={btnPrimary} onClick={() => setShowNew(true)}>+ Boîte mail</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : accounts.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: 48 }}>

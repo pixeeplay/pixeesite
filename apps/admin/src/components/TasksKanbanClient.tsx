@@ -53,11 +53,14 @@ export function TasksKanbanClient({ orgSlug }: { orgSlug: string }) {
     load();
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setShowNew(true)}>+ Nouvelle tâche</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="📋" title="Tâches"
       desc="Kanban pour organiser ton travail (drag-drop entre colonnes)"
-      actions={<button style={btnPrimary} onClick={() => setShowNew(true)}>+ Nouvelle tâche</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>

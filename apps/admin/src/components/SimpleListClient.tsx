@@ -43,10 +43,13 @@ export function SimpleListClient({
     setSaving(false);
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setShowNew(true)}>+ Nouveau</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji={emoji} title={title} desc={desc}
-      actions={<button style={btnPrimary} onClick={() => setShowNew(true)}>+ Nouveau</button>}
+      actions={newButton}
     >
       {loading ? (
         <p style={{ opacity: 0.5, padding: 24, textAlign: 'center' }}>Chargement…</p>

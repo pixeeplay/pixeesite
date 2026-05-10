@@ -47,11 +47,14 @@ export function OrgSecretsClient({ orgSlug }: { orgSlug: string }) {
     }
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setEditing({ key: '', category: 'ai', value: '' })}>+ Clé</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="🔑" title="Clés API"
       desc="Configure tes clés API : IA, image/vidéo, mail, storage, analytics. Chiffrées AES-256-GCM."
-      actions={<button style={btnPrimary} onClick={() => setEditing({ key: '', category: 'ai', value: '' })}>+ Clé</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : (
         <div style={{ display: 'grid', gap: 16 }}>

@@ -41,11 +41,14 @@ export function SitemapClient({ orgSlug }: { orgSlug: string }) {
     load();
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setShowNew(true)}>+ Entrée</button>
+  );
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="🗺️" title="Sitemap & Navigation"
       desc="Gère la structure de ton site et le sitemap.xml SEO"
-      actions={<button style={btnPrimary} onClick={() => setShowNew(true)}>+ Entrée</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : items.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: 48 }}>
