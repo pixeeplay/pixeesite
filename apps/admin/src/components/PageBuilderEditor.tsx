@@ -528,7 +528,7 @@ function ImageUrlInput({ value, onChange, orgSlug, layer }: { value: string; onC
         <div onClick={() => setShowAi(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: '#0a0a0f', border: '1px solid #d946ef40', borderRadius: 12, width: '100%', maxWidth: 480, padding: 16 }}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>✨ Générer une image IA</h3>
-            {layer && layer !== 'image' && <p style={{ fontSize: 11, color: '#fbbf24', margin: '0 0 8px' }}>💡 PNG transparent — décris juste l'élément, le fond sera transparent.</p>}
+            {layer && (layer === 'parallax-mid' || layer === 'parallax-fg') && <p style={{ fontSize: 11, color: '#fbbf24', margin: '0 0 8px' }}>💡 PNG transparent — décris juste l'élément, le fond sera transparent.</p>}
             <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} placeholder="Décris l'image…" style={{ ...inputStyle, marginBottom: 8 }} autoFocus />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setShowAi(false)} style={{ background: 'transparent', border: 0, color: '#a1a1aa', padding: '8px 12px', cursor: 'pointer' }}>Annuler</button>
