@@ -1,5 +1,6 @@
 # Pixeesite render app — multi-stage Dockerfile
 FROM node:20-alpine AS base
+RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
