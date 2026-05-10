@@ -244,3 +244,107 @@ model Asset {
   @@index([folder])
   @@index([tags])
 }
+
+// ─── TASKS / KANBAN ────────────────────────────────────────────
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  status      String   @default("todo") // todo | doing | review | done
+  priority    String   @default("normal") // low | normal | high | urgent
+  assignee    String?  // user id ou email
+  dueDate     DateTime?
+  tags        String[] @default([])
+  position    Int      @default(0)
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([status])
+  @@index([assignee])
+}
+
+// ─── FORUM / DISCUSSIONS ───────────────────────────────────────
+
+model ForumCategory {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  position    Int      @default(0)
+  threads     ForumThread[]
+  createdAt   DateTime @default(now())
+}
+
+model ForumThread {
+  id          String   @id @default(cuid())
+  categoryId  String?
+  category    ForumCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title       String
+  slug        String   @unique
+  body        String?  @db.Text
+  authorEmail String?
+  authorName  String?
+  pinned      Boolean  @default(false)
+  locked      Boolean  @default(false)
+  views       Int      @default(0)
+  posts       ForumPost[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([categoryId])
+}
+
+model ForumPost {
+  id          String   @id @default(cuid())
+  threadId    String
+  thread      ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  body        String   @db.Text
+  authorEmail String?
+  authorName  String?
+  parentId    String?  // pour replies
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([threadId])
+}
+
+// ─── SITEMAP / NAVIGATION ──────────────────────────────────────
+
+model SitemapEntry {
+  id          String   @id @default(cuid())
+  path        String
+  label       String
+  parentId    String?
+  position    Int      @default(0)
+  visibleNav  Boolean  @default(true)
+  visibleSEO  Boolean  @default(true)
+  changefreq  String?  // always | hourly | daily | weekly | monthly | yearly | never
+  priority    Float?   // 0.0 - 1.0
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([path])
+}
+
+// ─── DOMAINS (custom domain mapping) ───────────────────────────
+
+model TenantDomain {
+  id          String   @id @default(cuid())
+  hostname    String   @unique
+  primary     Boolean  @default(false)
+  verifiedAt  DateTime?
+  challenge   String?  // dns or http challenge token
+  createdAt   DateTime @default(now())
+}
+
+// ─── 2FA SECRET (per-user TOTP) ────────────────────────────────
+
+model TwoFactorSecret {
+  id          String   @id @default(cuid())
+  userEmail   String   @unique
+  secret      String   // base32
+  enabled     Boolean  @default(false)
+  recoveryCodes String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

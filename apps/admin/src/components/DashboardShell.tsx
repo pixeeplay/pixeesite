@@ -62,11 +62,25 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <NavItem href="/dashboard" label="🏠 Accueil" active={path === '/dashboard'} />
           {currentOrg && <>
-            <NavItem href={`/dashboard/orgs/${currentOrg.slug}`} label="📁 Sites" active={path.startsWith(`/dashboard/orgs/${currentOrg.slug}`) && !path.includes('/templates') && !path.includes('/settings') && !path.includes('/team') && !path.includes('/billing')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}`} label="📁 Sites" active={path === `/dashboard/orgs/${currentOrg.slug}` || path.startsWith(`/dashboard/orgs/${currentOrg.slug}/sites`)} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/templates`} label="✨ Templates" active={path.includes('/templates')} />
-            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/team`} label="👥 Équipe" active={path.includes('/team')} />
-            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/billing`} label="💳 Facturation" active={path.includes('/billing')} />
-            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/settings`} label="⚙ Paramètres" active={path.includes('/settings')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/sitemap`} label="🗺️ Sitemap" active={path.endsWith('/sitemap')} />
+            <div style={{ fontSize: 10, opacity: 0.4, padding: '12px 8px 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Contenu</div>
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/blog`} label="📝 Blog" active={path.endsWith('/blog')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/newsletter`} label="✉ Newsletter" active={path.includes('/newsletter')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/forms`} label="📋 Formulaires" active={path.endsWith('/forms')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/forum`} label="💬 Forum" active={path.endsWith('/forum')} />
+            <div style={{ fontSize: 10, opacity: 0.4, padding: '12px 8px 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Business</div>
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/leads`} label="🎯 Leads" active={path.endsWith('/leads')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/shop`} label="🛒 Boutique" active={path.endsWith('/shop')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/tasks`} label="📋 Tâches" active={path.endsWith('/tasks')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/mail`} label="📨 Webmail" active={path.endsWith('/mail')} />
+            <div style={{ fontSize: 10, opacity: 0.4, padding: '12px 8px 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Équipe</div>
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/team`} label="👥 Membres" active={path.endsWith('/team')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/billing`} label="💳 Facturation" active={path.endsWith('/billing')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/domains`} label="🌐 Domaines" active={path.endsWith('/domains')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/security`} label="🔐 Sécurité" active={path.endsWith('/security')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/settings`} label="⚙ Paramètres" active={path.endsWith('/settings')} />
           </>}
         </nav>
 
