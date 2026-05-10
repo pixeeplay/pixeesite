@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { MegaSearch } from './MegaSearch';
 
 interface Org { slug: string; name: string; plan: string; role: string; }
 
@@ -11,11 +12,28 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
   const currentOrgSlug = path.match(/^\/dashboard\/orgs\/([^/]+)/)?.[1];
   const currentOrg = orgs.find((o) => o.slug === currentOrgSlug) || orgs[0];
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Auto-close mobile nav on route change
+  useEffect(() => { setMobileNavOpen(false); }, [path]);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
+      {/* Mobile burger */}
+      <button onClick={() => setMobileNavOpen(!mobileNavOpen)}
+        className="pxs-burger"
+        style={{ position: 'fixed', top: 12, left: 12, zIndex: 60, background: '#18181b', color: 'white', border: '1px solid #27272a', borderRadius: 8, width: 40, height: 40, cursor: 'pointer', fontSize: 18, display: 'none' }}>
+        {mobileNavOpen ? '✕' : '☰'}
+      </button>
+      <style>{`
+        @media (max-width: 768px) {
+          .pxs-burger { display: block !important; }
+          .pxs-sidebar { position: fixed !important; left: ${mobileNavOpen ? '0' : '-260px'} !important; top: 0; bottom: 0; transition: left .25s; z-index: 50; box-shadow: 4px 0 16px rgba(0,0,0,0.5); }
+          .pxs-main { padding: 56px 16px 16px !important; }
+        }
+      `}</style>
       {/* Sidebar */}
-      <aside style={{ width: 240, background: '#18181b', borderRight: '1px solid #27272a', display: 'flex', flexDirection: 'column', padding: '20px 12px' }}>
+      <aside className="pxs-sidebar" style={{ width: 240, background: '#18181b', borderRight: '1px solid #27272a', display: 'flex', flexDirection: 'column', padding: '20px 12px' }}>
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit', marginBottom: 24 }}>
           <span style={{ fontSize: 24 }}>🎨</span>
           <span style={{ fontWeight: 900, background: 'linear-gradient(135deg, #d946ef, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pixeesite</span>
@@ -103,7 +121,12 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, padding: 32, overflow: 'auto' }}>{children}</main>
+      <main className="pxs-main" style={{ flex: 1, padding: 32, overflow: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <MegaSearch orgSlug={currentOrg?.slug} />
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
