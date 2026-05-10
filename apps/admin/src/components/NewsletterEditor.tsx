@@ -69,7 +69,7 @@ export function NewsletterEditor({ orgSlug }: { orgSlug: string }) {
               <input style={{ ...input, flex: 1 }} placeholder="Brief IA (ex: lance produit X, ton enthousiaste, 200 mots)"
                 value={aiBrief} onChange={(e) => setAiBrief(e.target.value)} />
               <AiButton orgSlug={orgSlug} feature="text" label="✨ Rédiger"
-                systemPrompt="Tu es un copywriter expert en email marketing. Génère un objet d'email accrocheur (max 60 caractères) puis le corps de l'email en HTML simple (h1, p, a). Format : OBJET: ...\n---\nHTML"
+                systemPrompt={"Tu es un copywriter expert en email marketing. Génère un objet d'email accrocheur (max 60 caractères) puis le corps de l'email en HTML simple (h1, p, a). Format : OBJET: ...\n---\nHTML"}
                 promptBuilder={() => aiBrief.trim() || null}
                 onResult={(text) => {
                   const m = text.match(/OBJET\s*:\s*(.+?)\n[\s-]+\n([\s\S]+)/i);

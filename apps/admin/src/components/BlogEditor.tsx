@@ -69,7 +69,7 @@ export function BlogEditor({ orgSlug }: { orgSlug: string }) {
               <input style={{ ...input, flex: 1 }} placeholder="Brief IA (ex: article SEO sur photographie de mariage, 600 mots)"
                 value={aiBrief} onChange={(e) => setAiBrief(e.target.value)} />
               <AiButton orgSlug={orgSlug} feature="text" label="✨ Rédiger"
-                systemPrompt="Tu es un rédacteur SEO expert. Génère un article complet en HTML simple. Format JSON strict : {\"title\":\"...\",\"excerpt\":\"...\",\"bodyHtml\":\"<h2>...</h2><p>...</p>\"}"
+                systemPrompt={'Tu es un rédacteur SEO expert. Génère un article complet en HTML simple. Format JSON strict : {"title":"...","excerpt":"...","bodyHtml":"<h2>...</h2><p>...</p>"}'}
                 promptBuilder={() => aiBrief.trim() || null}
                 onResult={(text) => {
                   try {
