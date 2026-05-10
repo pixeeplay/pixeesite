@@ -27,11 +27,15 @@ export function BlogEditor({ orgSlug }: { orgSlug: string }) {
     if (r.ok) { setEditing(null); load(); }
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setEditing({ title: '', excerpt: '', bodyHtml: '', status: 'draft' })}>+ Article</button>
+  );
+
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="📝" title="Blog"
       desc="Articles, actualités, posts SEO. Génère avec IA."
-      actions={<button style={btnPrimary} onClick={() => setEditing({ title: '', excerpt: '', bodyHtml: '', status: 'draft' })}>+ Article</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : items.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: 48 }}>

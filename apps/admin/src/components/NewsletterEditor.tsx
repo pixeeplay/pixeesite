@@ -27,11 +27,15 @@ export function NewsletterEditor({ orgSlug }: { orgSlug: string }) {
     if (r.ok) { setEditing(null); load(); }
   }
 
+  const newButton = (
+    <button style={btnPrimary} onClick={() => setEditing({ subject: '', bodyHtml: '', status: 'draft' })}>+ Campagne</button>
+  );
+
   return (
     <SimpleOrgPage
       orgSlug={orgSlug} emoji="✉️" title="Newsletter"
       desc="Crée tes campagnes — IA pour rédiger, segments pour cibler, tracking opens/clicks."
-      actions={<button style={btnPrimary} onClick={() => setEditing({ subject: '', bodyHtml: '', status: 'draft' })}>+ Campagne</button>}
+      actions={newButton}
     >
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : items.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: 48 }}>
