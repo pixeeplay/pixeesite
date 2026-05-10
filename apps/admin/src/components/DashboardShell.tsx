@@ -80,11 +80,18 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/billing`} label="💳 Facturation" active={path.endsWith('/billing')} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/domains`} label="🌐 Domaines" active={path.endsWith('/domains')} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/security`} label="🔐 Sécurité" active={path.endsWith('/security')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/keys`} label="🔑 Clés API" active={path.endsWith('/keys')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/ai`} label="🤖 IA Settings" active={path.endsWith('/ai')} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/settings`} label="⚙ Paramètres" active={path.endsWith('/settings')} />
           </>}
         </nav>
 
         <div style={{ borderTop: '1px solid #27272a', paddingTop: 12 }}>
+          {user?.isSuperAdmin && (
+            <Link href="/admin" style={{ display: 'block', padding: '8px 12px', fontSize: 13, color: '#f59e0b', textDecoration: 'none', borderRadius: 6, fontWeight: 600 }}>
+              👑 Super-admin
+            </Link>
+          )}
           <div style={{ fontSize: 11, opacity: 0.5, padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
