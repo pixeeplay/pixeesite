@@ -82,6 +82,7 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
           {currentOrg && <>
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}`} label="📁 Sites" active={path === `/dashboard/orgs/${currentOrg.slug}` || path.startsWith(`/dashboard/orgs/${currentOrg.slug}/sites`)} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/templates`} label="✨ Templates" active={path.includes('/templates')} />
+            <NavItem href={`/dashboard/orgs/${currentOrg.slug}/ai-theme`} label="🪄 IA Studio" active={path.endsWith('/ai-theme')} />
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/sitemap`} label="🗺️ Sitemap" active={path.endsWith('/sitemap')} />
             <div style={{ fontSize: 10, opacity: 0.4, padding: '12px 8px 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Contenu</div>
             <NavItem href={`/dashboard/orgs/${currentOrg.slug}/blog`} label="📝 Blog" active={path.endsWith('/blog')} />
