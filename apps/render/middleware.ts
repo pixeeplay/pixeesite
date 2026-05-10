@@ -15,6 +15,13 @@ import { platformDb } from '@pixeesite/database';
 
 const PLATFORM_DOMAINS = ['pixeesite.app', 'pixeesite.com', 'render.pixeesite.app'];
 
+// Dev / staging subdomains (sslip.io for Coolify): the org slug comes from a query param `?org=` for testing
+function getDevSlug(req: NextRequest): string | null {
+  const queryOrg = req.nextUrl.searchParams.get('org');
+  if (queryOrg) return queryOrg;
+  return null;
+}
+
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const host = (req.headers.get('host') || '').toLowerCase().split(':')[0];
@@ -26,8 +33,8 @@ export async function middleware(req: NextRequest) {
 
   let orgSlug: string | null = null;
 
-  // Cas dev : header forcé
-  const devSlug = req.headers.get('x-tenant-slug');
+  // Cas dev : header forcé ou ?org=
+  const devSlug = req.headers.get('x-tenant-slug') || getDevSlug(req);
   if (devSlug) orgSlug = devSlug;
 
   // Cas 1 : subdomain *.pixeesite.app / *.pixeesite.com
