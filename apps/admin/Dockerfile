@@ -14,4 +14,4 @@ RUN pnpm --filter @pixeesite/admin build
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd /app/packages/database && pnpm exec prisma db push --schema prisma/platform.prisma --skip-generate --accept-data-loss && cd /app && pnpm --filter @pixeesite/admin start"]
+CMD ["sh", "-c", "cd /app/packages/database && pnpm exec prisma db push --schema prisma/platform.prisma --skip-generate --accept-data-loss && bash /app/apps/admin/scripts/migrate-all-tenants.sh && cd /app && pnpm --filter @pixeesite/admin start"]

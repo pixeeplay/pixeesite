@@ -8,17 +8,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 let seedAttempted = false;
-async function autoSeedIfEmpty() {
+async function autoSeedMissing() {
   if (seedAttempted) return;
   seedAttempted = true;
   try {
-    const count = await platformDb.template.count();
-    if (count > 0) return;
-    console.log('[templates] Auto-seeding marketplace…');
-    for (const t of TEMPLATE_SEEDS) {
-      await platformDb.template.create({ data: t }).catch(() => {});
+    const existing = await platformDb.template.findMany({ select: { slug: true } });
+    const existingSlugs = new Set(existing.map((t) => t.slug));
+    const missing = TEMPLATE_SEEDS.filter((t) => !existingSlugs.has(t.slug));
+    if (missing.length === 0) return;
+    console.log('[templates] Auto-seeding', missing.length, 'missing templates…');
+    for (const t of missing) {
+      await platformDb.template.create({ data: t }).catch((e) => console.warn('[templates] skip', t.slug, e.message));
     }
-    console.log('[templates] Seeded', TEMPLATE_SEEDS.length, 'templates');
+    console.log('[templates] Seeded', missing.length, 'new templates (total catalog:', TEMPLATE_SEEDS.length, ')');
   } catch (e) {
     console.error('[templates] auto-seed failed', e);
   }
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  await autoSeedIfEmpty();
+  await autoSeedMissing();
 
   const url = new URL(req.url);
   const category = url.searchParams.get('category');
