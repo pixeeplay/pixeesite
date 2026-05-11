@@ -19,7 +19,25 @@ export const revalidate = 60;
  */
 export default async function TenantPage({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
-  const orgSlug = headers().get('x-pixeesite-org-slug');
+  const h = headers();
+  let orgSlug = h.get('x-pixeesite-org-slug');
+
+  // Custom domain lookup (Edge middleware peut pas faire DB → on le fait ici)
+  if (!orgSlug) {
+    const host = h.get('x-pixeesite-host') || h.get('host') || '';
+    if (host && !host.includes('localhost')) {
+      try {
+        const cd = await platformDb.customDomain.findUnique({
+          where: { domain: host },
+          select: { verified: true, org: { select: { slug: true } } },
+        });
+        if (cd?.verified) orgSlug = cd.org.slug;
+      } catch {
+        // DB down → fall through to notFound
+      }
+    }
+  }
+
   if (!orgSlug) notFound();
 
   // 1. Trouve l'org + TOUS ses sites published
