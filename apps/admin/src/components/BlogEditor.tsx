@@ -94,7 +94,24 @@ export function BlogEditor({ orgSlug }: { orgSlug: string }) {
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
               <div style={{ fontSize: 12, marginBottom: 4 }}>Image de couverture (URL)</div>
-              <input style={input} value={editing.coverImage || ''} onChange={(e) => setEditing({ ...editing, coverImage: e.target.value })} placeholder="https://..." />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input style={input} value={editing.coverImage || ''} onChange={(e) => setEditing({ ...editing, coverImage: e.target.value })} placeholder="https://..." />
+                <button type="button"
+                  onClick={async () => {
+                    const prompt = window.prompt('Décris l\'image que tu veux (style, sujet)', editing.title || '');
+                    if (!prompt) return;
+                    const r = await fetch(`/api/orgs/${orgSlug}/ai/image`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt, aspectRatio: '16:9' }),
+                    });
+                    const j = await r.json();
+                    if (j.images?.[0]) setEditing({ ...editing, coverImage: j.images[0].url || j.images[0] });
+                    else alert('Erreur génération : ' + (j.error || 'inconnu'));
+                  }}
+                  style={{ ...btnPrimary, whiteSpace: 'nowrap' }}>
+                  🎨 IA Image
+                </button>
+              </div>
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
               <div style={{ fontSize: 12, marginBottom: 4 }}>Corps HTML</div>

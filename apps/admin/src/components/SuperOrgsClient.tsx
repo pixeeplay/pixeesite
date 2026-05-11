@@ -93,10 +93,10 @@ export function SuperOrgsClient() {
                         {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
                       </select>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => patch(o.id, { maxSites: 999, maxAiCredits: 999999 })}
-                          title="Débloque tout : 999 sites + 999k crédits IA"
+                        <button onClick={() => patch(o.id, { maxSites: 999, maxAiCredits: 999999, tenantDbReady: true })}
+                          title="Débloque tout : 999 sites + 999k crédits IA + tenant ready"
                           style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#10b98122', color: '#10b981', border: '1px solid #10b98144' }}>
-                          ∞ Unlock
+                          ∞ Unlock + Ready
                         </button>
                       </div>
                     </div>
