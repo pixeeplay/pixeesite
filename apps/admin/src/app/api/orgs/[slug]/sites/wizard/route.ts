@@ -36,18 +36,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         const template = b.templateId ? await platformDb.template.findUnique({ where: { id: b.templateId } }) : null;
         const blocksSeed = (template?.blocksSeed as any) || { pages: [{ slug: '/', title: 'Accueil', isHome: true, blocks: [] }] };
         const pages = blocksSeed.pages || [];
+        const features: string[] = Array.isArray(blocksSeed.features) ? blocksSeed.features : [];
+        const seedData = blocksSeed.seedData || {};
+        const palette = blocksSeed.palette || null;
 
-        // 2. Update theme org si fourni
-        if (b.primaryColor || b.font || b.logoUrl) {
-          emit({ step: 'apply-theme', ok: true, detail: `couleur=${b.primaryColor} font=${b.font}` });
-          await platformDb.org.update({
-            where: { id: orgId },
-            data: {
-              ...(b.primaryColor && { primaryColor: b.primaryColor }),
-              ...(b.font && { font: b.font }),
-              ...(b.logoUrl && { logoUrl: b.logoUrl }),
-            },
-          }).catch(() => {});
+        // 2. Update theme org : priorité au choix utilisateur, sinon palette du template
+        const themePatch: any = {};
+        if (b.primaryColor) themePatch.primaryColor = b.primaryColor;
+        else if (palette?.primary) themePatch.primaryColor = palette.primary;
+        if (b.font) themePatch.font = b.font;
+        else if (palette?.fontHeading) themePatch.font = palette.fontHeading;
+        if (b.logoUrl) themePatch.logoUrl = b.logoUrl;
+        if (Object.keys(themePatch).length > 0) {
+          emit({ step: 'apply-theme', ok: true, detail: `couleur=${themePatch.primaryColor || '?'} font=${themePatch.font || '?'}` });
+          await platformDb.org.update({ where: { id: orgId }, data: themePatch }).catch(() => {});
         }
 
         // 3. Crée le site
@@ -154,6 +156,149 @@ Tu reçois la liste des blocks JSON existants et tu retournes la même liste mai
             emit({ step: `enable-${section}`, ok: true, detail: `Activation ${section}` });
             // Stub : ici on créerait les pages /blog, /shop, /forum, /contact selon section
           }
+        }
+
+        // 5bis. SEED DES MODULES selon features[] du template (Phase 20)
+        // Pour chaque feature activée → on seed les données initiales du template.seedData
+        // dans la DB tenant (Product, Article, Event, Testimonial, Newsletter).
+        // Idempotent : skipOnConflict pour ne pas planter sur re-création.
+        const slugify = (s: string) =>
+          (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+
+        // -- SHOP : seed products
+        if (features.includes('shop') && Array.isArray(seedData.products) && seedData.products.length > 0) {
+          emit({ step: 'seed-products', ok: true, detail: `Seed ${seedData.products.length} produit(s)…` });
+          let createdProducts = 0;
+          for (const p of seedData.products) {
+            try {
+              const productSlug = slugify(p.slug || p.name);
+              await (tenantDb as any).product.upsert({
+                where: { slug: productSlug },
+                update: {},
+                create: {
+                  slug: productSlug,
+                  name: p.name || 'Produit',
+                  description: p.description || null,
+                  priceCents: p.priceCents || 0,
+                  currency: p.currency || 'EUR',
+                  images: p.images || [],
+                  inventory: p.inventory ?? 0,
+                  category: p.category || null,
+                  active: true,
+                },
+              });
+              createdProducts++;
+            } catch (e: any) {
+              // continue
+            }
+          }
+          emit({ step: 'seed-products', ok: true, detail: `${createdProducts}/${seedData.products.length} produits seedés` });
+        }
+
+        // -- BLOG / ARTICLES : seed articles
+        if ((features.includes('blog') || features.includes('articles')) && Array.isArray(seedData.articles) && seedData.articles.length > 0) {
+          emit({ step: 'seed-articles', ok: true, detail: `Seed ${seedData.articles.length} article(s)…` });
+          let createdArticles = 0;
+          for (const a of seedData.articles) {
+            try {
+              const articleSlug = slugify(a.slug || a.title);
+              await (tenantDb as any).article.upsert({
+                where: { slug: articleSlug },
+                update: {},
+                create: {
+                  slug: articleSlug,
+                  title: a.title || 'Article',
+                  excerpt: a.excerpt || null,
+                  bodyHtml: a.bodyHtml || null,
+                  coverImage: a.coverImage || null,
+                  tags: a.tags || [],
+                  authorName: a.authorName || null,
+                  status: a.status || 'draft',
+                  publishedAt: a.status === 'published' ? new Date() : null,
+                },
+              });
+              createdArticles++;
+            } catch (e: any) {
+              // continue
+            }
+          }
+          emit({ step: 'seed-articles', ok: true, detail: `${createdArticles}/${seedData.articles.length} articles seedés` });
+        }
+
+        // -- EVENTS / AGENDA
+        if ((features.includes('events') || features.includes('agenda')) && Array.isArray(seedData.events) && seedData.events.length > 0) {
+          emit({ step: 'seed-events', ok: true, detail: `Seed ${seedData.events.length} événement(s)…` });
+          let createdEvents = 0;
+          for (const ev of seedData.events) {
+            try {
+              const evSlug = slugify(ev.slug || ev.title);
+              await (tenantDb as any).event.upsert({
+                where: { slug: evSlug },
+                update: {},
+                create: {
+                  slug: evSlug,
+                  title: ev.title || 'Événement',
+                  description: ev.description || null,
+                  startsAt: ev.startsAt ? new Date(ev.startsAt) : new Date(),
+                  endsAt: ev.endsAt ? new Date(ev.endsAt) : null,
+                  location: ev.location || null,
+                  coverImage: ev.coverImage || null,
+                  category: ev.category || null,
+                  published: true,
+                },
+              });
+              createdEvents++;
+            } catch (e: any) {
+              // continue
+            }
+          }
+          emit({ step: 'seed-events', ok: true, detail: `${createdEvents}/${seedData.events.length} événements seedés` });
+        }
+
+        // -- TESTIMONIALS
+        if (features.includes('testimonials') && Array.isArray(seedData.testimonials) && seedData.testimonials.length > 0) {
+          emit({ step: 'seed-testimonials', ok: true, detail: `Seed ${seedData.testimonials.length} témoignage(s)…` });
+          let createdTestimonials = 0;
+          for (const t of seedData.testimonials) {
+            try {
+              await (tenantDb as any).testimonial.create({
+                data: {
+                  authorName: t.authorName || 'Client',
+                  authorTitle: t.authorTitle || null,
+                  authorAvatar: t.authorAvatar || null,
+                  quote: t.quote || null,
+                  rating: t.rating ?? null,
+                  featured: !!t.featured,
+                  published: true,
+                },
+              });
+              createdTestimonials++;
+            } catch (e: any) {
+              // continue
+            }
+          }
+          emit({ step: 'seed-testimonials', ok: true, detail: `${createdTestimonials}/${seedData.testimonials.length} témoignages seedés` });
+        }
+
+        // -- NEWSLETTER drafts
+        if (features.includes('newsletter') && Array.isArray(seedData.newsletters) && seedData.newsletters.length > 0) {
+          emit({ step: 'seed-newsletters', ok: true, detail: `Seed ${seedData.newsletters.length} newsletter(s)…` });
+          let createdNl = 0;
+          for (const n of seedData.newsletters) {
+            try {
+              await (tenantDb as any).newsletter.create({
+                data: {
+                  subject: n.subject || 'Newsletter',
+                  bodyHtml: n.bodyHtml || null,
+                  status: n.status || 'draft',
+                },
+              });
+              createdNl++;
+            } catch (e: any) {
+              // continue
+            }
+          }
+          emit({ step: 'seed-newsletters', ok: true, detail: `${createdNl}/${seedData.newsletters.length} newsletters seedées` });
         }
 
         // 6. Update pageCount
