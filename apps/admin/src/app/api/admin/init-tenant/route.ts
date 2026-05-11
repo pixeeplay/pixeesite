@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { platformDb, getTenantPrisma } from '@pixeesite/database';
 import { requireSuperAdmin } from '@/lib/super-admin';
 import { TENANT_TABLES, ensureTenantTables } from '@/lib/tenant-init';
+import { ensureTenantDb } from '@/lib/ensure-tenant-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,15 @@ export async function POST(req: NextRequest) {
   if (!org) return NextResponse.json({ error: 'org not found' }, { status: 404 });
 
   const log: { step: string; ok: boolean; detail?: any }[] = [];
+
+  // STEP 0 : CREATE DATABASE si la DB tenant n'existe pas encore
+  try {
+    const res = await ensureTenantDb(orgSlug);
+    log.push({ step: 'ensure-db', ok: true, detail: res.created ? `DB "${res.dbName}" créée` : `DB "${res.dbName}" déjà présente` });
+  } catch (e: any) {
+    log.push({ step: 'ensure-db', ok: false, detail: e?.message?.slice(0, 300) });
+    return NextResponse.json({ log }, { status: 500 });
+  }
 
   const db = await getTenantPrisma(orgSlug).catch((e) => {
     log.push({ step: 'connect-tenant', ok: false, detail: e?.message });

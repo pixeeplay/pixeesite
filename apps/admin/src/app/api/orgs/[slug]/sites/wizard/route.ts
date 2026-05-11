@@ -3,6 +3,7 @@ import { platformDb, getTenantPrisma } from '@pixeesite/database';
 import { requireOrgMember } from '@/lib/auth-helpers';
 import { aiCall } from '@/lib/ai-client';
 import { ensureTenantTables } from '@/lib/tenant-init';
+import { ensureTenantDb } from '@/lib/ensure-tenant-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,6 +63,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
           data: { orgId, slug: finalSlug, name: b.name, status: 'draft', templateId: b.templateId || null },
         });
         emit({ step: 'site-created', ok: true, detail: { id: site.id, slug: finalSlug }, progress: 10 });
+
+        // Auto-provisionne la DB tenant si elle n'existe pas (CREATE DATABASE + set Org.tenantDbName)
+        try {
+          const provRes = await ensureTenantDb(orgSlug);
+          emit({ step: 'ensure-db', ok: true, detail: provRes.created ? `DB "${provRes.dbName}" créée` : `DB "${provRes.dbName}" prête`, progress: 7 });
+        } catch (e: any) {
+          emit({ step: 'ensure-db', ok: false, detail: `Provisioning DB échoué : ${e?.message?.slice(0, 200) || 'unknown'}` });
+          ctrl.close();
+          return;
+        }
 
         const tenantDb = await getTenantPrisma(orgSlug).catch((e) => {
           emit({ step: 'tenant-db', ok: false, detail: `Connexion tenant échouée : ${e?.message?.slice(0, 200) || 'unknown'}` });
