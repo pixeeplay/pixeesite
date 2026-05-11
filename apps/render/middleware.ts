@@ -73,8 +73,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.rewrite(new URL('/_unknown-org', req.url));
   }
 
-  // Inject le slug dans les headers pour que les pages serveur le récupèrent
-  const res = NextResponse.next();
+  // CRITIQUE : on doit propager le header sur la REQUÊTE forwardée au server component,
+  // pas sur la response. Sinon headers().get() côté page rend null → notFound().
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-pixeesite-org-slug', orgSlug);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  // Aussi sur la response (debug / browser visibility)
   res.headers.set('x-pixeesite-org-slug', orgSlug);
   return res;
 }
