@@ -47,9 +47,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: 'name-and-slug-required' }, { status: 400 });
   }
 
-  // Check plan limits
+  // Check plan limits (bypassable par super-admin)
+  const userIsSuperAdmin = await platformDb.user.findUnique({ where: { id: auth.userId }, select: { isSuperAdmin: true } }).then((u) => !!u?.isSuperAdmin).catch(() => false);
   const sitesCount = await platformDb.site.count({ where: { orgId: auth.membership.org.id } });
-  if (sitesCount >= auth.membership.org.maxSites) {
+  if (!userIsSuperAdmin && sitesCount >= auth.membership.org.maxSites) {
     return NextResponse.json({ error: 'plan-limit-reached', limit: auth.membership.org.maxSites, current: sitesCount }, { status: 402 });
   }
 

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { card, input } from './SimpleOrgPage';
+import { card, input, btnPrimary, btnSecondary } from './SimpleOrgPage';
 import Link from 'next/link';
 
 const PLANS = ['free', 'solo', 'pro', 'agency', 'enterprise'];
@@ -27,11 +27,37 @@ export function SuperOrgsClient() {
     load();
   }
 
+  async function patch(id: string, data: any) {
+    await fetch('/api/admin/orgs', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...data }),
+    });
+    load();
+  }
+
+  const [migrating, setMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<string | null>(null);
+  async function migrateTenants() {
+    setMigrating(true);
+    setMigrateResult(null);
+    const r = await fetch('/api/admin/migrate-tenants', { method: 'POST' });
+    const j = await r.json();
+    setMigrateResult(`Migré ${j.migrated}/${j.total}`);
+    setMigrating(false);
+    load();
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 28, margin: 0 }}>🏢 Toutes les organisations</h1>
-        <input style={{ ...input, maxWidth: 280 }} placeholder="Rechercher slug ou nom…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={migrateTenants} disabled={migrating} style={btnSecondary} title="Push tenant.prisma sur toutes les DBs tenants">
+            {migrating ? '⏳ Migration…' : '🔧 Migrate tenants'}
+          </button>
+          {migrateResult && <span style={{ fontSize: 12, color: '#10b981' }}>{migrateResult}</span>}
+          <input style={{ ...input, maxWidth: 280 }} placeholder="Rechercher slug ou nom…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
       </div>
       {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p> : (
         <div style={{ ...card, padding: 0 }}>
@@ -61,10 +87,19 @@ export function SuperOrgsClient() {
                   <td style={{ textAlign: 'center', padding: 10 }}>{o._count?.members || 0}</td>
                   <td style={{ textAlign: 'center', padding: 10 }}>{o.tenantDbReady ? '🟢' : '🟡'}</td>
                   <td style={{ padding: 10 }}>
-                    <select value={o.plan} onChange={(e) => changePlan(o.id, e.target.value)}
-                      style={{ ...input, width: 120, padding: 6, fontSize: 12 }}>
-                      {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <select value={o.plan} onChange={(e) => changePlan(o.id, e.target.value)}
+                        style={{ ...input, width: 120, padding: 6, fontSize: 12 }}>
+                        {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => patch(o.id, { maxSites: 999, maxAiCredits: 999999 })}
+                          title="Débloque tout : 999 sites + 999k crédits IA"
+                          style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#10b98122', color: '#10b981', border: '1px solid #10b98144' }}>
+                          ∞ Unlock
+                        </button>
+                      </div>
+                    </div>
                   </td>
                   <td style={{ textAlign: 'right', padding: 10, fontSize: 11, opacity: 0.5 }}>
                     {new Date(o.createdAt).toLocaleDateString('fr-FR')}
