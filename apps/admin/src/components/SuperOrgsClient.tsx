@@ -47,6 +47,24 @@ export function SuperOrgsClient() {
     load();
   }
 
+  const [initOrg, setInitOrg] = useState<string | null>(null);
+  const [initLog, setInitLog] = useState<any[]>([]);
+  const [initBusy, setInitBusy] = useState(false);
+  async function initTenant(orgSlug: string) {
+    setInitOrg(orgSlug);
+    setInitLog([{ step: 'starting', ok: true, detail: 'Création tables SQL + pages depuis templates…' }]);
+    setInitBusy(true);
+    try {
+      const r = await fetch(`/api/admin/init-tenant?org=${orgSlug}`, { method: 'POST' });
+      const j = await r.json();
+      setInitLog(j.log || [{ step: 'no-response', ok: false }]);
+    } catch (e: any) {
+      setInitLog([{ step: 'error', ok: false, detail: e.message }]);
+    }
+    setInitBusy(false);
+    load();
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
@@ -92,11 +110,16 @@ export function SuperOrgsClient() {
                         style={{ ...input, width: 120, padding: 6, fontSize: 12 }}>
                         {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
                       </select>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button onClick={() => patch(o.id, { plan: 'agency', maxSites: 999, maxAiCredits: 999999, tenantDbReady: true, planStatus: 'active' })}
                           title="Débloque tout : plan AGENCY + 999 sites + 999k crédits IA + tenant ready + status active"
                           style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#10b98122', color: '#10b981', border: '1px solid #10b98144' }}>
                           ∞ Unlock AGENCY
+                        </button>
+                        <button onClick={() => initTenant(o.slug)} disabled={initBusy}
+                          title="Crée les 10 tables tenant manquantes via SQL + recrée pages depuis templates"
+                          style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f644' }}>
+                          🔧 Init tenant
                         </button>
                       </div>
                     </div>
