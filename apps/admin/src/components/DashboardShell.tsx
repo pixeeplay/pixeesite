@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { MegaSearch } from './MegaSearch';
+import { ClaudeAutopilot } from './ClaudeAutopilot';
 import { colors, gradients } from '@/lib/design-tokens';
 
 interface Org { slug: string; name: string; plan: string; role: string; }
@@ -276,6 +277,9 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
         </div>
         {children}
       </main>
+
+      {/* Claude AI Autopilot bottom-sheet (⌘J pour ouvrir) */}
+      <ClaudeAutopilot orgSlug={currentOrg?.slug} />
     </div>
   );
 }
