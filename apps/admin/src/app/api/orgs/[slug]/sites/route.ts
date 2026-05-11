@@ -84,59 +84,65 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     },
   });
 
-  // Crée les pages dans tenant DB
-  const tenantDb = await getTenantPrisma(orgSlug);
-  if (templateBlocks?.pages && Array.isArray(templateBlocks.pages)) {
-    // Depuis template
-    for (const p of templateBlocks.pages) {
+  // Crée les pages dans tenant DB (avec try/catch pour fallback safe)
+  try {
+    const tenantDb = await getTenantPrisma(orgSlug);
+    if (templateBlocks?.pages && Array.isArray(templateBlocks.pages)) {
+      for (const p of templateBlocks.pages) {
+        await tenantDb.sitePage.create({
+          data: {
+            siteId: site.id,
+            slug: p.slug || '/',
+            title: p.title || 'Page',
+            blocks: p.blocks || [],
+            isHome: p.isHome || p.slug === '/',
+            visible: true,
+            meta: p.meta || null,
+          },
+        });
+      }
+    } else {
       await tenantDb.sitePage.create({
         data: {
           siteId: site.id,
-          slug: p.slug || '/',
-          title: p.title || 'Page',
-          blocks: p.blocks || [],
-          isHome: p.isHome || p.slug === '/',
+          slug: '/',
+          title: name,
+          isHome: true,
           visible: true,
-          meta: p.meta || null,
+          blocks: [
+            {
+              type: 'parallax-hero', width: 'full', effect: 'fade-up', effectDelay: 0,
+              data: {
+                title: name,
+                subtitle: 'À toi de jouer ✨',
+                ctaLabel: 'Découvrir',
+                ctaHref: '#contenu',
+                bgGradient: 'linear-gradient(180deg, #1e1b4b, #4c1d95, #d946ef)',
+                floatingText: name.toUpperCase().slice(0, 12),
+                height: '70vh',
+              },
+            },
+            {
+              type: 'text', width: 'full', effect: 'fade-up', effectDelay: 100,
+              data: { html: '<h2 id="contenu">Bienvenue sur ton nouveau site</h2><p>Édite cette page dans le builder pour la personnaliser. Ajoute des blocs, génère des images IA, choisis un thème.</p>' },
+            },
+          ],
         },
       });
     }
-  } else {
-    // Page d'accueil par défaut
-    await tenantDb.sitePage.create({
-      data: {
-        siteId: site.id,
-        slug: '/',
-        title: name,
-        isHome: true,
-        visible: true,
-        blocks: [
-          {
-            type: 'parallax-hero', width: 'full', effect: 'fade-up', effectDelay: 0,
-            data: {
-              title: name,
-              subtitle: 'À toi de jouer ✨',
-              ctaLabel: 'Découvrir',
-              ctaHref: '#contenu',
-              bgGradient: 'linear-gradient(180deg, #1e1b4b, #4c1d95, #d946ef)',
-              floatingText: name.toUpperCase().slice(0, 12),
-              height: '70vh',
-            },
-          },
-          {
-            type: 'text', width: 'full', effect: 'fade-up', effectDelay: 100,
-            data: { html: '<h2 id="contenu">Bienvenue sur ton nouveau site</h2><p>Édite cette page dans le builder pour la personnaliser. Ajoute des blocs, génère des images IA, choisis un thème.</p>' },
-          },
-        ],
-      },
-    });
+    const pageCount = await tenantDb.sitePage.count({ where: { siteId: site.id } });
+    await platformDb.site.update({ where: { id: site.id }, data: { pageCount } }).catch(() => {});
+  } catch (e: any) {
+    // Pages tenant DB ont échoué (probablement table SitePage manquante)
+    // Le site existe en platform DB, on le garde — le user pourra ajouter des pages via Page Builder
+    console.error('[sites POST] tenant DB pages failed:', e?.message);
+    await platformDb.site.update({
+      where: { id: site.id },
+      data: { deployStatus: `tenant-pages-failed: ${(e?.message || 'unknown').slice(0, 100)}` },
+    }).catch(() => {});
   }
 
-  // Update pageCount
-  const pageCount = await tenantDb.sitePage.count({ where: { siteId: site.id } });
-  await platformDb.site.update({ where: { id: site.id }, data: { pageCount } });
-
-  // Audit
+  // Audit (best effort)
   await platformDb.platformAuditLog.create({
     data: {
       userId: auth.userId,
@@ -145,7 +151,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       resource: `site:${site.id}`,
       metadata: { templateId, siteSlug: finalSlug },
     },
-  });
+  }).catch(() => {});
 
-  return NextResponse.json({ ok: true, site }, { status: 201 });
+  return NextResponse.json({ ok: true, site, slug: finalSlug }, { status: 201 });
 }
