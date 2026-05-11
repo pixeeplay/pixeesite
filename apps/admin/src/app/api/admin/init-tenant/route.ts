@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { platformDb, getTenantPrisma } from '@pixeesite/database';
+import { platformDb, getTenantPrisma, ensureTenantDb } from '@pixeesite/database';
 import { requireSuperAdmin } from '@/lib/super-admin';
 import { TENANT_TABLES, ensureTenantTables } from '@/lib/tenant-init';
-import { ensureTenantDb } from '@/lib/ensure-tenant-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

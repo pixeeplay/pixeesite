@@ -5,9 +5,12 @@
  *
  * Idempotent : safe à rappeler. Utilisé à la fois par /api/admin/init-tenant
  * et par le wizard de création de site pour s'auto-réparer si la DB manque.
+ *
+ * NB : ce module est dans packages/database/ parce qu'il importe `pg` (qui n'est
+ * déclaré que comme dépendance de ce package, pas de apps/admin).
  */
 import { Client as PgClient } from 'pg';
-import { platformDb } from '@pixeesite/database';
+import { platformDb } from './platform';
 
 function dbNameFor(orgSlug: string): string {
   return `pixeesite_tenant_${orgSlug.replace(/[^a-z0-9_]/gi, '_').toLowerCase()}`;
@@ -19,7 +22,7 @@ function dbNameFor(orgSlug: string): string {
  *   2. Se connecte au serveur Postgres avec PLATFORM_DATABASE_URL et exécute CREATE DATABASE si nécessaire
  *   3. Update Org.tenantDbName + tenantDbReady
  *
- * Retourne { dbName, created } — `created` indique si on a réellement créé la DB ce tour-ci.
+ * Retourne { dbName, created, reused } — `created` indique si on a réellement créé la DB ce tour-ci.
  */
 export async function ensureTenantDb(orgSlug: string): Promise<{ dbName: string; created: boolean; reused: boolean }> {
   const org = await platformDb.org.findUnique({
