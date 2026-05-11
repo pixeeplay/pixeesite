@@ -241,6 +241,7 @@ model Order {
   billingAddress  Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  orderItems      OrderItem[]
   @@index([status, createdAt])
   @@index([email])
 }
