@@ -46,11 +46,17 @@ export function MegaSearch({ orgSlug }: { orgSlug?: string }) {
     <>
       <button onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
         style={{
-          background: '#0a0a0f', border: '1px solid #3f3f46', borderRadius: 8,
-          padding: '6px 12px', color: '#a1a1aa', cursor: 'pointer', fontSize: 12,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-        🔍 Rechercher… <kbd style={{ background: '#27272a', padding: '1px 5px', borderRadius: 3, fontSize: 10 }}>⌘K</kbd>
+          background: '#0a0a0f', border: '1px solid #3f3f46', borderRadius: 10,
+          padding: '10px 16px', color: '#a1a1aa', cursor: 'pointer', fontSize: 13,
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+          transition: 'border-color .15s, background .15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d946ef'; e.currentTarget.style.background = '#18181b'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3f3f46'; e.currentTarget.style.background = '#0a0a0f'; }}
+      >
+        <span style={{ fontSize: 16 }}>🔍</span>
+        <span style={{ flex: 1, textAlign: 'left' }}>Rechercher : page, lieu, événement, paramètre…</span>
+        <kbd style={{ background: '#27272a', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontFamily: 'monospace' }}>⌘K</kbd>
       </button>
 
       {open && (
