@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { platformDb, getTenantPrisma } from '@pixeesite/database';
 import { requireOrgMember } from '@/lib/auth-helpers';
 import { aiCall } from '@/lib/ai-client';
+import { ensureTenantTables } from '@/lib/tenant-init';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,11 +63,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         });
         emit({ step: 'site-created', ok: true, detail: { id: site.id, slug: finalSlug }, progress: 10 });
 
-        const tenantDb = await getTenantPrisma(orgSlug).catch(() => null);
+        const tenantDb = await getTenantPrisma(orgSlug).catch((e) => {
+          emit({ step: 'tenant-db', ok: false, detail: `Connexion tenant échouée : ${e?.message?.slice(0, 200) || 'unknown'}` });
+          return null;
+        });
         if (!tenantDb) {
-          emit({ step: 'tenant-db', ok: false, detail: 'Va dans /admin/orgs > Init tenant' });
           ctrl.close();
           return;
+        }
+
+        // Auto-init des tables tenant si elles manquent (idempotent, safe à rejouer)
+        emit({ step: 'ensure-tables', ok: true, detail: 'Vérification/création des tables tenant…' });
+        const tablesLog = await ensureTenantTables(tenantDb);
+        const tablesOk = tablesLog.filter((t) => t.ok).length;
+        const tablesKo = tablesLog.filter((t) => !t.ok);
+        if (tablesKo.length > 0) {
+          emit({ step: 'ensure-tables', ok: false, detail: `${tablesOk}/${tablesLog.length} OK — erreurs: ${tablesKo.map((t) => t.name).join(', ')}` });
+        } else {
+          emit({ step: 'ensure-tables', ok: true, detail: `${tablesOk}/${tablesLog.length} tables prêtes`, progress: 12 });
         }
 
         // 4. Pour chaque page → IA personnalise le contenu

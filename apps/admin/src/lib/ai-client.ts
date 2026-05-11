@@ -53,10 +53,33 @@ async function recordUsage(orgId: string, partial: Partial<AiResult> & { provide
   }).catch(() => {});
 }
 
+/**
+ * Résout les alias de modèles Gemini "futurs" (3.x.x) vers les vrais noms exposés
+ * par l'API v1beta de Google AI. Si un nom inconnu arrive, on fallback sur 2.5-flash.
+ */
+function resolveGeminiModel(name: string): string {
+  // Aliases UI → vrais modèles Google AI
+  const ALIASES: Record<string, string> = {
+    'gemini-3.0-pro': 'gemini-2.5-pro',
+    'gemini-3.0-flash': 'gemini-2.5-flash',
+    'gemini-3.1-flash-lite': 'gemini-2.5-flash-lite',
+    'gemini-3-flash-lite': 'gemini-2.5-flash-lite',
+    'gemini-3-flash': 'gemini-2.5-flash',
+    'gemini-3-pro': 'gemini-2.5-pro',
+  };
+  if (ALIASES[name]) return ALIASES[name];
+  // Si déjà un vrai nom 2.x → on garde
+  if (/^gemini-2\.[05]-(flash|pro|flash-lite|flash-exp)$/.test(name)) return name;
+  if (/^gemini-1\.5-(flash|pro)$/.test(name)) return name;
+  // Inconnu → fallback safe
+  return 'gemini-2.5-flash';
+}
+
 export async function aiCall(opts: AiCallOpts): Promise<AiResult> {
   const cfg = await getConfig(opts.orgId, opts.feature);
   const provider = cfg?.provider || 'gemini';
-  const model = cfg?.model || 'gemini-3.0-flash';
+  let model = cfg?.model || 'gemini-2.5-flash';
+  if (provider === 'gemini') model = resolveGeminiModel(model);
   const temperature = opts.temperature ?? cfg?.temperature ?? 0.7;
   const maxTokens = opts.maxTokens ?? cfg?.maxTokens ?? 2048;
   const systemPrompt = opts.systemPrompt ?? cfg?.systemPrompt;
@@ -88,23 +111,42 @@ export async function aiCall(opts: AiCallOpts): Promise<AiResult> {
 async function callGemini({ orgId, model, prompt, systemPrompt, temperature, maxTokens }: any): Promise<AiResult> {
   const key = await getOrgSecret(orgId, 'GEMINI_API_KEY');
   if (!key) return { ok: false, output: '', provider: 'gemini', model, error: 'GEMINI_API_KEY non configurée' };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      ...(systemPrompt && { systemInstruction: { parts: [{ text: systemPrompt }] } }),
-      generationConfig: { temperature, maxOutputTokens: maxTokens },
-    }),
-  });
-  const j = await r.json();
-  if (!r.ok) return { ok: false, output: '', provider: 'gemini', model, error: j.error?.message };
-  const text = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const usage = j.usageMetadata || {};
-  return {
-    ok: true, output: text, provider: 'gemini', model,
-    promptTokens: usage.promptTokenCount, outputTokens: usage.candidatesTokenCount,
+  // Chaîne de fallback : si le modèle demandé est 404 (not found), on retombe sur des modèles supportés
+  const FALLBACK_CHAIN: Record<string, string[]> = {
+    'gemini-2.5-pro':         ['gemini-2.5-pro', 'gemini-2.0-pro-exp', 'gemini-1.5-pro'],
+    'gemini-2.5-flash':       ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+    'gemini-2.5-flash-lite':  ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-8b'],
+    'gemini-2.0-flash':       ['gemini-2.0-flash', 'gemini-1.5-flash'],
+    'gemini-2.0-flash-lite':  ['gemini-2.0-flash-lite', 'gemini-1.5-flash-8b'],
+    'gemini-1.5-pro':         ['gemini-1.5-pro'],
+    'gemini-1.5-flash':       ['gemini-1.5-flash'],
   };
+  const chain = FALLBACK_CHAIN[model] || [model, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  let lastError = '';
+  for (const tryModel of chain) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        ...(systemPrompt && { systemInstruction: { parts: [{ text: systemPrompt }] } }),
+        generationConfig: { temperature, maxOutputTokens: maxTokens },
+      }),
+    });
+    const j = await r.json();
+    if (r.ok) {
+      const text = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const usage = j.usageMetadata || {};
+      return {
+        ok: true, output: text, provider: 'gemini', model: tryModel,
+        promptTokens: usage.promptTokenCount, outputTokens: usage.candidatesTokenCount,
+      };
+    }
+    lastError = j.error?.message || `HTTP ${r.status}`;
+    // Si l'erreur n'est pas "not found", on arrête le fallback (clé invalide, quota, etc.)
+    if (!/not found|not supported|404/i.test(lastError)) break;
+  }
+  return { ok: false, output: '', provider: 'gemini', model, error: lastError };
 }
 
 async function callOpenAI(args: any): Promise<AiResult> {

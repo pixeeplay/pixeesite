@@ -13,7 +13,7 @@ const FEATURES = [
 ];
 
 const PROVIDERS: Record<string, { label: string; models: string[] }> = {
-  gemini:     { label: 'Google Gemini', models: ['gemini-3.0-pro', 'gemini-3.0-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-pro'] },
+  gemini:     { label: 'Google Gemini', models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro', 'gemini-1.5-flash'] },
   openai:     { label: 'OpenAI', models: ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4o', 'o1', 'dall-e-3'] },
   anthropic:  { label: 'Anthropic Claude', models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5'] },
   openrouter: { label: 'OpenRouter', models: ['anthropic/claude-sonnet-4-6', 'meta-llama/llama-3.3-70b', 'deepseek/deepseek-r1', 'qwen/qwen-2.5-72b'] },
@@ -41,7 +41,7 @@ export function AiConfigClient({ orgSlug }: { orgSlug: string }) {
   useEffect(() => { load(); }, []);
 
   function getConfig(feature: string) {
-    return configs.find((c) => c.feature === feature) || { feature, provider: 'gemini', model: 'gemini-3.0-flash', temperature: 0.7, maxTokens: 2048 };
+    return configs.find((c) => c.feature === feature) || { feature, provider: 'gemini', model: 'gemini-2.5-flash', temperature: 0.7, maxTokens: 2048 };
   }
 
   async function saveFeature(feature: string, partial: any) {

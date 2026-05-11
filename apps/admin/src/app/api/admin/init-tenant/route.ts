@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { platformDb, getTenantPrisma } from '@pixeesite/database';
 import { requireSuperAdmin } from '@/lib/super-admin';
+import { TENANT_TABLES, ensureTenantTables } from '@/lib/tenant-init';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,8 +35,8 @@ export async function POST(req: NextRequest) {
   if (!db) return NextResponse.json({ log }, { status: 500 });
   log.push({ step: 'connect-tenant', ok: true });
 
-  // STEP 1 : SQL CREATE TABLE IF NOT EXISTS pour chaque modèle tenant
-  const tables: { name: string; sql: string }[] = [
+  // STEP 1 : SQL CREATE TABLE IF NOT EXISTS pour chaque modèle tenant (source : lib/tenant-init.ts)
+  const tables: { name: string; sql: string }[] = TENANT_TABLES; const _UNUSED_INLINE = [
     { name: 'SitePage', sql: `
       CREATE TABLE IF NOT EXISTS "SitePage" (
         "id" TEXT NOT NULL PRIMARY KEY,
