@@ -21,12 +21,13 @@ type Source = {
   updatedAt: string;
 };
 
-type Tab = 'library' | 'add' | 'playground';
+type Tab = 'library' | 'add' | 'playground' | 'docs';
 
 const SOURCE_TYPES = [
   { id: 'text', label: 'Texte libre', emoji: '📝' },
   { id: 'url', label: 'URL', emoji: '🔗' },
   { id: 'pdf', label: 'PDF (texte)', emoji: '📄' },
+  { id: 'file', label: 'Fichier .txt/.md', emoji: '📂' },
 ];
 
 export function KnowledgeAdminClient({ orgSlug }: { orgSlug: string }) {
@@ -70,6 +71,7 @@ export function KnowledgeAdminClient({ orgSlug }: { orgSlug: string }) {
       <nav style={{ ...card, display: 'flex', gap: 8, marginBottom: 16, padding: 8, flexWrap: 'wrap' }}>
         <TabBtn active={tab === 'library'} onClick={() => setTab('library')} label={`📚 Bibliothèque (${stats.sourceCount})`} />
         <TabBtn active={tab === 'add'} onClick={() => setTab('add')} label="➕ Ajouter du contenu" />
+        <TabBtn active={tab === 'docs'} onClick={() => setTab('docs')} label="📑 Documents (KnowledgeDoc)" />
         <TabBtn active={tab === 'playground'} onClick={() => setTab('playground')} label="💬 Playground" />
       </nav>
 
@@ -77,6 +79,7 @@ export function KnowledgeAdminClient({ orgSlug }: { orgSlug: string }) {
         <LibraryView sources={filtered} loading={loading} search={search} setSearch={setSearch} orgSlug={orgSlug} onReload={load} />
       )}
       {tab === 'add' && <AddView orgSlug={orgSlug} onAdded={() => { setTab('library'); load(); }} />}
+      {tab === 'docs' && <DocsView orgSlug={orgSlug} />}
       {tab === 'playground' && <PlaygroundView orgSlug={orgSlug} />}
     </SimpleOrgPage>
   );
@@ -162,6 +165,18 @@ function AddView({ orgSlug, onAdded }: { orgSlug: string; onAdded: () => void })
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2_000_000) {
+      setMsg('Fichier > 2 Mo — coupe-le en morceaux');
+      return;
+    }
+    const t = await file.text();
+    setContent(t);
+    if (!name) setName(file.name.replace(/\.\w+$/, ''));
+  }
+
   async function submit() {
     if (!name.trim()) { setMsg('Nom requis'); return; }
     if (type !== 'url' && !content.trim()) { setMsg('Contenu requis'); return; }
@@ -170,7 +185,7 @@ function AddView({ orgSlug, onAdded }: { orgSlug: string; onAdded: () => void })
     try {
       const r = await fetch(`/api/orgs/${orgSlug}/rag-sources`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, content: type === 'url' ? '' : content, url: type === 'url' ? url : null }),
+        body: JSON.stringify({ name, type: type === 'file' ? 'text' : type, content: type === 'url' ? '' : content, url: type === 'url' ? url : null }),
       });
       const j = await r.json();
       if (!r.ok) { setMsg(`Erreur: ${j.error}`); return; }
@@ -203,6 +218,23 @@ function AddView({ orgSlug, onAdded }: { orgSlug: string; onAdded: () => void })
         <Field label="URL à indexer *">
           <input style={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" type="url" />
         </Field>
+      ) : type === 'file' ? (
+        <>
+          <Field label="Fichier .txt / .md / .csv *">
+            <label style={{ ...card, padding: 14, display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+              <span style={{ fontSize: 22 }}>📂</span>
+              <input type="file" accept=".txt,.md,.csv,text/*" onChange={onFile} style={{ flex: 1 }} />
+            </label>
+          </Field>
+          {content && (
+            <Field label="Contenu importé (édite si besoin)">
+              <textarea style={{ ...input, minHeight: 180, fontFamily: 'inherit' }} value={content} onChange={(e) => setContent(e.target.value)} />
+              <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4 }}>
+                {content.length} chars ≈ {Math.round(content.length / 4)} tokens
+              </div>
+            </Field>
+          )}
+        </>
       ) : (
         <Field label="Contenu *">
           <textarea style={{ ...input, minHeight: 220, fontFamily: 'inherit' }} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Colle ici le texte à indexer (Markdown ou texte brut)…" />
@@ -284,6 +316,146 @@ function PlaygroundView({ orgSlug }: { orgSlug: string }) {
       )}
     </div>
   );
+}
+
+/* ---------- DocsView : KnowledgeDoc (Phase 10 module IA) ---------- */
+function DocsView({ orgSlug }: { orgSlug: string }) {
+  const [docs, setDocs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
+  const [text, setText] = useState('');
+  const [tagsRaw, setTagsRaw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<any>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/orgs/${orgSlug}/knowledge/ingest`);
+      const j = await r.json();
+      setDocs(j.items || []);
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, [orgSlug]);
+
+  async function onFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || file.size > 2_000_000) { setMsg('Fichier requis < 2 Mo'); return; }
+    const t = await file.text();
+    setText(t);
+    if (!title) setTitle(file.name.replace(/\.\w+$/, ''));
+  }
+
+  async function ingest() {
+    if (!title.trim()) { setMsg('Titre requis'); return; }
+    if (!url.trim() && text.trim().length < 50) { setMsg('URL ou texte (min 50 chars) requis'); return; }
+    setBusy(true); setMsg('Ingestion en cours…');
+    try {
+      const r = await fetch(`/api/orgs/${orgSlug}/knowledge/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          url: url.trim() || undefined,
+          text: text.trim() || undefined,
+          tags: tagsRaw.split(',').map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setMsg('Erreur: ' + (j.error || '')); return; }
+      setMsg(`✓ ${j.chunkCount} chunks indexés (${j.tokensCount} tokens)`);
+      setTitle(''); setUrl(''); setText(''); setTagsRaw('');
+      await load();
+    } finally { setBusy(false); }
+  }
+
+  async function runQuery() {
+    if (!query.trim()) return;
+    setSearching(true); setSearchResult(null);
+    try {
+      const r = await fetch(`/api/orgs/${orgSlug}/knowledge/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: query, topK: 5, generateAnswer: true }),
+      });
+      const j = await r.json();
+      setSearchResult(j);
+    } finally { setSearching(false); }
+  }
+
+  return (
+    <div>
+      <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+        <h3 style={{ marginTop: 0 }}>📥 Ingestion (modèle KnowledgeDoc)</h3>
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+          Pipeline : fetch → chunk ~220 mots → embed Gemini text-embedding-004 (768d) → KnowledgeDoc + KnowledgeChunk.
+        </div>
+        <Field label="Titre *"><input style={input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: FAQ produit 2026" /></Field>
+        <Field label="URL à fetch (optionnel)"><input style={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></Field>
+        <Field label="…ou texte brut (sinon URL)">
+          <textarea style={{ ...input, minHeight: 140, fontFamily: 'inherit' }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Colle le contenu ici…" />
+          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 4 }}>{text.length} chars ≈ {Math.round(text.length / 4)} tokens</div>
+        </Field>
+        <Field label="…ou fichier .txt/.md (drag&drop)">
+          <input type="file" accept=".txt,.md,.csv,text/*" onChange={onFileUpload} />
+        </Field>
+        <Field label="Tags (séparés par virgule)">
+          <input style={input} value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} placeholder="faq, produit, 2026" />
+        </Field>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button style={btnPrimary} disabled={busy} onClick={ingest}>{busy ? '⏳' : '⚡ Ingest'}</button>
+          {msg && <span style={{ fontSize: 12, opacity: 0.8 }}>{msg}</span>}
+        </div>
+      </div>
+
+      <div style={{ ...card, padding: 20, marginBottom: 14 }}>
+        <h3 style={{ marginTop: 0 }}>🔍 Recherche RAG sur KnowledgeDoc</h3>
+        <textarea style={{ ...input, minHeight: 70, fontFamily: 'inherit' }} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ex: Quelle est la politique de retour ?" />
+        <button style={{ ...btnPrimary, marginTop: 8 }} disabled={searching} onClick={runQuery}>{searching ? '⏳' : '🔎 Rechercher + générer réponse'}</button>
+        {searchResult && (
+          <div style={{ marginTop: 12 }}>
+            {searchResult.answer && (
+              <div style={{ ...card, padding: 12, borderLeft: `3px solid ${colors.success}` }}>
+                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>💬 RÉPONSE</div>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{searchResult.answer}</div>
+              </div>
+            )}
+            <div style={{ fontSize: 11, opacity: 0.6, margin: '8px 0' }}>{searchResult.chunks?.length || 0} chunks · score max {searchResult.topScore}</div>
+            {(searchResult.chunks || []).slice(0, 3).map((c: any, i: number) => (
+              <div key={c.chunkId} style={{ ...card, padding: 10, marginBottom: 6 }}>
+                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>[{i + 1}] {c.docTitle} · score {c.score}</div>
+                <div style={{ fontSize: 13, opacity: 0.85 }}>{c.text.slice(0, 400)}{c.text.length > 400 ? '…' : ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <h3>📚 Documents ingérés ({docs.length})</h3>
+      {loading ? <p style={{ opacity: 0.5 }}>Chargement…</p>
+        : docs.length === 0 ? <div style={{ ...card, padding: 24, textAlign: 'center', opacity: 0.5 }}>Aucun document. Ingest un 1er document ci-dessus.</div>
+          : docs.map((d) => (
+            <article key={d.id} style={{ ...card, padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontSize: 22 }}>{d.sourceType === 'url' ? '🔗' : d.sourceType === 'pdf' ? '📄' : '📝'}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700 }}>{d.title}</div>
+                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+                  {d._count?.chunks || 0} chunks · {d.sourceType} · {new Date(d.createdAt).toLocaleDateString()}
+                  {d.source && <> · <a href={d.source} target="_blank" rel="noreferrer" style={{ color: colors.primary }}>{d.source.slice(0, 50)}</a></>}
+                </div>
+              </div>
+              {d.enabled ? <span style={pillStyle(colors.success)}>ON</span> : <span style={pillStyle(colors.danger)}>OFF</span>}
+            </article>
+          ))}
+    </div>
+  );
+}
+function pillStyle(c: string): React.CSSProperties {
+  return { background: `${c}22`, color: c, padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700 };
 }
 
 /* ---------- helpers ---------- */

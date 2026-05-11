@@ -100,6 +100,7 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
         { href: `/dashboard/orgs/${slug}/playground`, icon: '🎮', label: 'Playground RAG' },
         { href: `/dashboard/orgs/${slug}/legal-assistant`, icon: '⚖️', label: 'Assistant juridique' },
         { href: `/dashboard/orgs/${slug}/avatar-studio`, icon: '🎭', label: 'Avatar Studio (vidéo)' },
+        { href: `/dashboard/orgs/${slug}/journal-ia`, icon: '📖', label: 'Journal IA (voix éditoriale)' },
         { href: `/dashboard/orgs/${slug}/translations`, icon: '🌍', label: 'Traductions IA' },
         { href: `/dashboard/orgs/${slug}/telegram-bot`, icon: '🤳', label: 'Bot Telegram' },
         { href: `/dashboard/orgs/${slug}/integrations`, icon: '🔌', label: 'Intégrations' },

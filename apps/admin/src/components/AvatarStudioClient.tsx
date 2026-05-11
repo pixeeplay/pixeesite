@@ -32,6 +32,7 @@ export function AvatarStudioClient({ orgSlug }: { orgSlug: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
 
+  const [provider, setProvider] = useState<'heygen' | 'synthesia' | 'tavus'>('heygen');
   const [avatarId, setAvatarId] = useState('');
   const [voiceId, setVoiceId] = useState('');
   const [bgColor, setBgColor] = useState(BG_PRESETS[0].color);
@@ -65,9 +66,16 @@ export function AvatarStudioClient({ orgSlug }: { orgSlug: string }) {
     if (!voiceId) { setError('Choisis une voix'); return; }
     setError(null); setBusy(true); setVideoId(null); setStatus(null);
     try {
-      const r = await fetch(`/api/orgs/${orgSlug}/avatar-studio/generate`, {
+      // Route multi-provider (Phase 10) si pas heygen, sinon route originale.
+      const endpoint = provider === 'heygen'
+        ? `/api/orgs/${orgSlug}/avatar-studio/generate`
+        : `/api/orgs/${orgSlug}/avatar-studio/multi-generate`;
+      const body = provider === 'heygen'
+        ? { text, avatarId, voiceId, bgColor, ratio }
+        : { provider, script: text, avatarId, voiceId, bgColor, ratio };
+      const r = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, avatarId, voiceId, bgColor, ratio }),
+        body: JSON.stringify(body),
       });
       const j = await r.json();
       if (!r.ok) { setError(j.error || 'Erreur'); return; }
@@ -77,7 +85,10 @@ export function AvatarStudioClient({ orgSlug }: { orgSlug: string }) {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
-          const sr = await fetch(`/api/orgs/${orgSlug}/avatar-studio/generate?videoId=${j.video_id}`);
+          const statusEndpoint = provider === 'heygen'
+            ? `/api/orgs/${orgSlug}/avatar-studio/generate?videoId=${j.video_id}`
+            : `/api/orgs/${orgSlug}/avatar-studio/multi-generate?provider=${provider}&videoId=${j.video_id}`;
+          const sr = await fetch(statusEndpoint);
           const s = await sr.json();
           setStatus(s);
           if (s.status === 'completed' || s.status === 'failed') {
@@ -93,7 +104,7 @@ export function AvatarStudioClient({ orgSlug }: { orgSlug: string }) {
   const selectedAvatar = avatars.find((a) => a.avatar_id === avatarId);
 
   return (
-    <SimpleOrgPage orgSlug={orgSlug} emoji="🎭" title="Avatar Studio" desc="Génère des vidéos d'avatar parlant via HeyGen — choisis avatar + voix + script.">
+    <SimpleOrgPage orgSlug={orgSlug} emoji="🎭" title="Avatar Studio" desc="Génère des vidéos d'avatar parlant via HeyGen / Synthesia / Tavus — choisis provider + avatar + voix + script.">
       {loadError && (
         <div style={{ ...card, padding: 12, marginBottom: 12, borderLeft: `3px solid ${colors.warning}` }}>
           ⚠ {loadError}{!loadError.includes('non configurée') && ' — '}
@@ -107,6 +118,33 @@ export function AvatarStudioClient({ orgSlug }: { orgSlug: string }) {
         <Stat label="Crédits restants" value={quota ?? '?'} grad={gradients.pink} />
         <Stat label="État" value={loadError ? 'KO' : (avatars.length > 0 ? 'Prêt' : 'Vide')} grad={loadError ? gradients.orange : gradients.green} />
       </section>
+
+      {/* Provider switcher (Phase 10) */}
+      <div style={{ ...card, padding: 12, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Provider vidéo</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {([
+            { id: 'heygen', label: '🎬 HeyGen', desc: 'Production-ready, ~50 avatars' },
+            { id: 'synthesia', label: '🎭 Synthesia', desc: 'TODO — stock avatars' },
+            { id: 'tavus', label: '🪞 Tavus', desc: 'TODO — real-time persona' },
+          ] as const).map((p) => (
+            <button key={p.id} onClick={() => setProvider(p.id)} style={{
+              ...card, padding: 12, cursor: 'pointer', textAlign: 'left', flex: 1, minWidth: 180,
+              border: provider === p.id ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+              background: provider === p.id ? `${colors.primary}11` : colors.bgCard,
+              opacity: p.id !== 'heygen' ? 0.6 : 1,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{p.label}</div>
+              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{p.desc}</div>
+            </button>
+          ))}
+        </div>
+        {provider !== 'heygen' && (
+          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7, color: colors.warning }}>
+            ⚠ {provider === 'synthesia' ? 'Synthesia' : 'Tavus'} en cours d'intégration — utilise HeyGen pour générer.
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
         {/* LEFT : avatar + voice picker */}
