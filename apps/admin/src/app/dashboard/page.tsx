@@ -38,7 +38,7 @@ export default async function DashboardHome() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{o.name}</div>
-                <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2 }}>{o.slug}.pixeesite.app</div>
+                <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2 }}>{o.slug}.pixeeplay.com</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                   <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#d946ef22', color: '#d946ef', fontWeight: 700, textTransform: 'uppercase' }}>{o.plan}</span>
                   <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#06b6d422', color: '#06b6d4', fontWeight: 700, textTransform: 'uppercase' }}>{o.role}</span>

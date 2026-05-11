@@ -76,7 +76,7 @@ export default function SignupPage() {
                 placeholder="mon-agence" required minLength={2} maxLength={40}
                 style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 0, color: 'inherit', fontFamily: 'monospace' }}
               />
-              <span style={{ opacity: 0.5, fontSize: 12 }}>.pixeesite.app</span>
+              <span style={{ opacity: 0.5, fontSize: 12 }}>.pixeeplay.com</span>
             </div>
           </label>
 
