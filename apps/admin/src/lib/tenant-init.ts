@@ -399,6 +399,187 @@ export const TENANT_TABLES: { name: string; sql: string }[] = [
     CREATE INDEX IF NOT EXISTS "Partner_active_position_idx" ON "Partner"("active", "position");
     CREATE INDEX IF NOT EXISTS "Partner_featured_idx" ON "Partner"("featured");
   ` },
+  // ──────────────────────────────────────────────────────────────────────
+  // Phase A : 11 tables pour CRM/Leads + IA core + IA avancée + Intégrations
+  // ──────────────────────────────────────────────────────────────────────
+  { name: 'EmailTemplate', sql: `
+    CREATE TABLE IF NOT EXISTS "EmailTemplate" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL UNIQUE,
+      "name" TEXT NOT NULL,
+      "category" TEXT,
+      "subject" TEXT NOT NULL,
+      "bodyHtml" TEXT NOT NULL,
+      "bodyText" TEXT,
+      "variables" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "audience" TEXT,
+      "isSystem" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "EmailTemplate_category_idx" ON "EmailTemplate"("category");
+  ` },
+  { name: 'ScraperJob', sql: `
+    CREATE TABLE IF NOT EXISTS "ScraperJob" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT,
+      "sourceUrl" TEXT NOT NULL,
+      "depth" INTEGER NOT NULL DEFAULT 1,
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "leadCount" INTEGER NOT NULL DEFAULT 0,
+      "errorCount" INTEGER NOT NULL DEFAULT 0,
+      "config" JSONB,
+      "results" JSONB,
+      "startedAt" TIMESTAMP(3),
+      "finishedAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "ScraperJob_status_idx" ON "ScraperJob"("status");
+  ` },
+  { name: 'AiAutopilotRule', sql: `
+    CREATE TABLE IF NOT EXISTS "AiAutopilotRule" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "description" TEXT,
+      "trigger" TEXT NOT NULL,
+      "triggerConfig" JSONB,
+      "action" TEXT NOT NULL,
+      "actionConfig" JSONB,
+      "schedule" TEXT,
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "lastRunAt" TIMESTAMP(3),
+      "lastRunStatus" TEXT,
+      "runsCount" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "AiAutopilotRule_active_idx" ON "AiAutopilotRule"("active");
+  ` },
+  { name: 'AiManual', sql: `
+    CREATE TABLE IF NOT EXISTS "AiManual" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL UNIQUE,
+      "title" TEXT NOT NULL,
+      "audience" TEXT NOT NULL,
+      "tone" TEXT,
+      "language" TEXT NOT NULL DEFAULT 'fr',
+      "content" TEXT NOT NULL,
+      "outline" JSONB,
+      "provider" TEXT,
+      "model" TEXT,
+      "tokensUsed" INTEGER,
+      "videoScript" TEXT,
+      "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "AiManual_audience_idx" ON "AiManual"("audience");
+  ` },
+  { name: 'RagSource', sql: `
+    CREATE TABLE IF NOT EXISTS "RagSource" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "type" TEXT NOT NULL,
+      "url" TEXT,
+      "config" JSONB,
+      "lastIndexedAt" TIMESTAMP(3),
+      "chunksCount" INTEGER NOT NULL DEFAULT 0,
+      "tokensCount" INTEGER NOT NULL DEFAULT 0,
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  ` },
+  { name: 'RagChunk', sql: `
+    CREATE TABLE IF NOT EXISTS "RagChunk" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "sourceId" TEXT NOT NULL,
+      "text" TEXT NOT NULL,
+      "embedding" DOUBLE PRECISION[],
+      "metadata" JSONB,
+      "position" INTEGER NOT NULL DEFAULT 0,
+      "tokens" INTEGER,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "RagChunk_sourceId_idx" ON "RagChunk"("sourceId");
+  ` },
+  { name: 'TelegramAlert', sql: `
+    CREATE TABLE IF NOT EXISTS "TelegramAlert" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "chatId" TEXT NOT NULL,
+      "type" TEXT,
+      "message" TEXT NOT NULL,
+      "parseMode" TEXT,
+      "sentAt" TIMESTAMP(3),
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "error" TEXT,
+      "metadata" JSONB,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "TelegramAlert_status_idx" ON "TelegramAlert"("status");
+  ` },
+  { name: 'IntegrationConfig', sql: `
+    CREATE TABLE IF NOT EXISTS "IntegrationConfig" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "provider" TEXT NOT NULL UNIQUE,
+      "displayName" TEXT,
+      "active" BOOLEAN NOT NULL DEFAULT false,
+      "config" JSONB,
+      "lastSyncAt" TIMESTAMP(3),
+      "lastSyncStatus" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  ` },
+  { name: 'Theme', sql: `
+    CREATE TABLE IF NOT EXISTS "Theme" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL UNIQUE,
+      "name" TEXT NOT NULL,
+      "season" TEXT,
+      "palette" JSONB NOT NULL,
+      "fonts" JSONB,
+      "blocks" JSONB,
+      "active" BOOLEAN NOT NULL DEFAULT false,
+      "scheduledFrom" TIMESTAMP(3),
+      "scheduledUntil" TIMESTAMP(3),
+      "previewImage" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Theme_active_idx" ON "Theme"("active");
+  ` },
+  { name: 'FeatureFlag', sql: `
+    CREATE TABLE IF NOT EXISTS "FeatureFlag" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "key" TEXT NOT NULL UNIQUE,
+      "displayName" TEXT,
+      "description" TEXT,
+      "value" BOOLEAN NOT NULL DEFAULT false,
+      "rollout" INTEGER NOT NULL DEFAULT 100,
+      "conditions" JSONB,
+      "audience" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  ` },
+  { name: 'Translation', sql: `
+    CREATE TABLE IF NOT EXISTS "Translation" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "namespace" TEXT NOT NULL DEFAULT 'default',
+      "key" TEXT NOT NULL,
+      "lang" TEXT NOT NULL,
+      "value" TEXT NOT NULL,
+      "context" TEXT,
+      "approved" BOOLEAN NOT NULL DEFAULT false,
+      "translatedBy" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS "Translation_ns_key_lang_key" ON "Translation"("namespace", "key", "lang");
+    CREATE INDEX IF NOT EXISTS "Translation_lang_idx" ON "Translation"("lang");
+  ` },
 ];
 
 /**
