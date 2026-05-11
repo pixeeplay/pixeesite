@@ -8,41 +8,51 @@ export function Brain3DClient({ orgSlug }: { orgSlug: string }) {
 
   useEffect(() => {
     let cleanup = () => {};
-    (async () => {
-      // @ts-ignore
-      const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/+esm').catch(() => null);
-      if (!THREE || !canvasRef.current) {
-        // Fallback canvas 2D si Three.js unavailable
-        return drawFallback();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Inject Three.js via <script> tag (UMD)
+    const SCRIPT_ID = 'pxs-three-loader';
+    function withThree(fn: (THREE: any) => void) {
+      const G = window as any;
+      if (G.THREE) { fn(G.THREE); return; }
+      let s = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+      if (!s) {
+        s = document.createElement('script');
+        s.id = SCRIPT_ID;
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js';
+        s.async = true;
+        document.head.appendChild(s);
       }
-      const canvas = canvasRef.current;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      const scene = new (THREE as any).Scene();
-      const camera = new (THREE as any).PerspectiveCamera(70, w / h, 0.1, 1000);
+      s.addEventListener('load', () => fn((window as any).THREE), { once: true });
+      if ((window as any).THREE) fn((window as any).THREE);
+    }
+
+    withThree((THREE) => {
+      if (!canvas) return;
+      const w = canvas.clientWidth || 600;
+      const h = canvas.clientHeight || 500;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, w / h, 0.1, 1000);
       camera.position.z = 5;
-      const renderer = new (THREE as any).WebGLRenderer({ canvas, antialias: true, alpha: true });
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setSize(w, h);
       renderer.setPixelRatio(window.devicePixelRatio);
 
-      // Sphère wireframe centrale = "cerveau"
-      const sphereGeo = new (THREE as any).IcosahedronGeometry(1.5, 2);
-      const sphereMat = new (THREE as any).MeshBasicMaterial({ color: 0xd946ef, wireframe: true, transparent: true, opacity: 0.5 });
-      const sphere = new (THREE as any).Mesh(sphereGeo, sphereMat);
+      // Sphère wireframe centrale
+      const sphereGeo = new THREE.IcosahedronGeometry(1.5, 2);
+      const sphereMat = new THREE.MeshBasicMaterial({ color: 0xd946ef, wireframe: true, transparent: true, opacity: 0.5 });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
       scene.add(sphere);
 
-      // Points cloud autour (embeddings projetés)
-      const cloudGeo = new (THREE as any).BufferGeometry();
+      // Points cloud
+      const cloudGeo = new THREE.BufferGeometry();
       const N = 800;
       const positions = new Float32Array(N * 3);
       const colors = new Float32Array(N * 3);
       const palette = [
-        [0.85, 0.27, 0.94], // d946ef
-        [0.02, 0.71, 0.83], // 06b6d4
-        [0.55, 0.36, 0.96], // 8b5cf6
-        [0.06, 0.72, 0.51], // 10b981
-        [0.96, 0.62, 0.04], // f59e0b
-        [0.92, 0.27, 0.6],  // ec4899
+        [0.85, 0.27, 0.94], [0.02, 0.71, 0.83], [0.55, 0.36, 0.96],
+        [0.06, 0.72, 0.51], [0.96, 0.62, 0.04], [0.92, 0.27, 0.6],
       ];
       for (let i = 0; i < N; i++) {
         const r = 2 + Math.random() * 2;
@@ -54,13 +64,12 @@ export function Brain3DClient({ orgSlug }: { orgSlug: string }) {
         const c = palette[Math.floor(Math.random() * palette.length)];
         colors[i * 3] = c[0]; colors[i * 3 + 1] = c[1]; colors[i * 3 + 2] = c[2];
       }
-      cloudGeo.setAttribute('position', new (THREE as any).BufferAttribute(positions, 3));
-      cloudGeo.setAttribute('color', new (THREE as any).BufferAttribute(colors, 3));
-      const cloudMat = new (THREE as any).PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.85 });
-      const cloud = new (THREE as any).Points(cloudGeo, cloudMat);
+      cloudGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      cloudGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const cloudMat = new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.85 });
+      const cloud = new THREE.Points(cloudGeo, cloudMat);
       scene.add(cloud);
 
-      // Animation
       let raf = 0;
       const start = Date.now();
       function animate() {
@@ -74,8 +83,8 @@ export function Brain3DClient({ orgSlug }: { orgSlug: string }) {
       }
       animate();
 
-      // Resize
       function onResize() {
+        if (!canvas) return;
         const w2 = canvas.clientWidth, h2 = canvas.clientHeight;
         camera.aspect = w2 / h2;
         camera.updateProjectionMatrix();
@@ -83,12 +92,11 @@ export function Brain3DClient({ orgSlug }: { orgSlug: string }) {
       }
       window.addEventListener('resize', onResize);
 
-      // Mouse parallax
-      let mx = 0, my = 0;
       function onMouseMove(e: MouseEvent) {
+        if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        mx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-        my = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+        const mx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+        const my = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
         camera.position.x = mx * 0.8;
         camera.position.y = -my * 0.8;
         camera.lookAt(0, 0, 0);
@@ -101,17 +109,8 @@ export function Brain3DClient({ orgSlug }: { orgSlug: string }) {
         canvas.removeEventListener('mousemove', onMouseMove);
         renderer.dispose();
       };
-    })();
-    function drawFallback() {
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
-      ctx.fillStyle = '#d946ef';
-      ctx.font = '14px monospace';
-      ctx.fillText('Three.js loading…', 20, 30);
-    }
+    });
+
     return () => cleanup();
   }, []);
 
