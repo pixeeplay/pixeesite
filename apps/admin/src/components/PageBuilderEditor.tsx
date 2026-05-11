@@ -57,9 +57,14 @@ export function PageBuilderEditor(props: Props) {
   const [previewMode, setPreviewMode] = useState<'live' | 'blocks'>('blocks');
   const [iframeKey, setIframeKey] = useState(0);
 
-  const livePreviewUrl = props.orgDefaultDomain
-    ? `https://${props.orgDefaultDomain}${props.pageSlug}`
-    : `http://localhost:3001${props.pageSlug}`;
+  // URL publique : <orgSlug>.pixeeplay.com/<siteSlug>[/page]
+  // Fallback orgDefaultDomain si custom domain configuré, sinon localhost en dev
+  const pagePath = props.pageSlug === '/' ? '' : props.pageSlug;
+  const livePreviewUrl = props.orgDefaultDomain && !props.orgDefaultDomain.endsWith('.pixeesite.app')
+    ? `https://${props.orgDefaultDomain}/${props.siteSlug}${pagePath}`
+    : typeof window !== 'undefined' && window.location.hostname.includes('localhost')
+      ? `http://localhost:3001/${props.siteSlug}${pagePath}?org=${props.orgSlug}`
+      : `https://${props.orgSlug}.pixeeplay.com/${props.siteSlug}${pagePath}`;
 
   // Auto-save toutes les 30s si modifs
   useEffect(() => {

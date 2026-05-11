@@ -152,9 +152,9 @@ export function DashboardShell({ user, orgs, children }: { user: any; orgs: Org[
             </div>
           </Link>
           {slug && (
-            <a href={`http://${slug}.51.75.31.123.sslip.io`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://${slug}.pixeeplay.com`} target="_blank" rel="noopener noreferrer"
               style={{ background: '#0a0a0f', border: `1px solid ${colors.border}`, padding: '4px 8px', borderRadius: 6, fontSize: 10, color: colors.textMuted, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-              title="Voir le site public"
+              title={`Voir le site public ${slug}.pixeeplay.com`}
             >🏠 FRONT</a>
           )}
         </div>

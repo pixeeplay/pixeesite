@@ -34,8 +34,8 @@ export function SiteDetailClient({ orgSlug, orgName, orgDefaultDomain, site, pag
   const [publishing, setPublishing] = useState(false);
   const [showNewPage, setShowNewPage] = useState(false);
   // URL publique : <orgSlug>.pixeeplay.com/<siteSlug> (multi-sites par org via path)
-  // Fallback : orgDefaultDomain si custom domain configuré
-  const liveUrl = orgDefaultDomain
+  // On ignore orgDefaultDomain s'il pointe vers l'ancien .pixeesite.app (DNS pas configuré)
+  const liveUrl = orgDefaultDomain && !orgDefaultDomain.endsWith('.pixeesite.app')
     ? `https://${orgDefaultDomain}/${site.slug}`
     : `https://${orgSlug}.pixeeplay.com/${site.slug}`;
 

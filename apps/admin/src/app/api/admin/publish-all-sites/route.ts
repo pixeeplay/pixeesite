@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const orgSlug = url.searchParams.get('org');
   if (!orgSlug) return NextResponse.json({ error: 'org required' }, { status: 400 });
 
-  const org = await platformDb.org.findUnique({ where: { slug: orgSlug }, select: { id: true } });
+  const org = await platformDb.org.findUnique({ where: { slug: orgSlug }, select: { id: true, defaultDomain: true } });
   if (!org) return NextResponse.json({ error: 'org not found' }, { status: 404 });
 
   const before = await platformDb.site.count({ where: { orgId: org.id, status: 'draft' } });
@@ -36,7 +36,20 @@ export async function POST(req: NextRequest) {
 
   const after = await platformDb.site.count({ where: { orgId: org.id, status: 'published' } });
 
-  return NextResponse.json({ ok: true, org: orgSlug, total, draftsBefore: before, published: after, updated: r.count });
+  // Migration : si defaultDomain pointe encore vers l'ancien .pixeesite.app, on le bascule sur .pixeeplay.com
+  let domainMigrated = false;
+  if (org.defaultDomain && org.defaultDomain.endsWith('.pixeesite.app')) {
+    await platformDb.org.update({
+      where: { id: org.id },
+      data: { defaultDomain: `${orgSlug}.pixeeplay.com` },
+    });
+    domainMigrated = true;
+  }
+
+  return NextResponse.json({
+    ok: true, org: orgSlug, total, draftsBefore: before, published: after, updated: r.count,
+    domainMigrated, newDomain: domainMigrated ? `${orgSlug}.pixeeplay.com` : org.defaultDomain,
+  });
 }
 
 export async function GET(req: NextRequest) {
