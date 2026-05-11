@@ -38,6 +38,7 @@ export async function PATCH(req: NextRequest) {
       ...(b.maxAiCredits !== undefined && { maxAiCredits: parseInt(b.maxAiCredits, 10) }),
       ...(b.usedAiCredits !== undefined && { usedAiCredits: parseInt(b.usedAiCredits, 10) }),
       ...(b.tenantDbReady !== undefined && { tenantDbReady: !!b.tenantDbReady }),
+      ...(b.planStatus && { planStatus: b.planStatus }),
     },
   });
   return NextResponse.json(updated);

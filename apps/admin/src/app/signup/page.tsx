@@ -73,7 +73,7 @@ export default function SignupPage() {
             <div style={{ display: 'flex', alignItems: 'center', background: '#18181b', border: '1px solid #3f3f46', borderRadius: 12, padding: '0 12px' }}>
               <input
                 value={orgSlug} onChange={(e) => setOrgSlug(autoSlug(e.target.value))}
-                placeholder="mon-agence" required pattern="[a-z0-9-]+" minLength={3} maxLength={40}
+                placeholder="mon-agence" required minLength={2} maxLength={40}
                 style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 0, color: 'inherit', fontFamily: 'monospace' }}
               />
               <span style={{ opacity: 0.5, fontSize: 12 }}>.pixeesite.app</span>

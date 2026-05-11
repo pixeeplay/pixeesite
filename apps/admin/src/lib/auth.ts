@@ -90,7 +90,25 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.userId;
         (session.user as any).isSuperAdmin = !!token.isSuperAdmin;
-        (session.user as any).orgs = token.orgs || [];
+        // Re-fetch orgs depuis DB pour avoir le plan à jour
+        // (sinon le JWT cache l'ancien plan tant que le user ne se reconnecte pas)
+        if (token.userId) {
+          const fresh = await platformDb.orgMember.findMany({
+            where: { userId: token.userId as string },
+            select: { role: true, org: { select: { slug: true, name: true, plan: true, planStatus: true, tenantDbReady: true } } },
+          }).catch(() => null);
+          if (fresh) {
+            (session.user as any).orgs = fresh.map((m) => ({
+              slug: m.org.slug, name: m.org.name, plan: m.org.plan,
+              planStatus: m.org.planStatus, role: m.role,
+              tenantDbReady: m.org.tenantDbReady,
+            }));
+          } else {
+            (session.user as any).orgs = token.orgs || [];
+          }
+        } else {
+          (session.user as any).orgs = token.orgs || [];
+        }
       }
       return session;
     },

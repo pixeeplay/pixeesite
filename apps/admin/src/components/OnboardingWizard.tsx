@@ -65,7 +65,7 @@ export function OnboardingWizard({ userEmail }: { userEmail: string }) {
             <label style={{ display: 'block', marginBottom: 12 }}>
               <div style={{ fontSize: 12, marginBottom: 4 }}>URL : <code style={{ color: draft.primaryColor }}>{draft.slug || 'mon-studio'}.pixeesite.app</code></div>
               <input style={{ width: '100%', padding: 12, background: '#0a0a0f', border: '1px solid #3f3f46', borderRadius: 8, color: 'inherit', fontSize: 15, fontFamily: 'monospace' }}
-                pattern="[a-z0-9-]+" value={draft.slug || ''} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} />
+                value={draft.slug || ''} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} />
             </label>
             <button disabled={!draft.name || !draft.slug} onClick={() => setStep(2)}
               style={{ background: draft.primaryColor, color: 'white', border: 0, padding: '12px 24px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>

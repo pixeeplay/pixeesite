@@ -54,9 +54,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: 'plan-limit-reached', limit: auth.membership.org.maxSites, current: sitesCount }, { status: 402 });
   }
 
-  // Check slug unique within org
-  const existing = await platformDb.site.findUnique({ where: { orgId_slug: { orgId: auth.membership.org.id, slug: siteSlug } } }).catch(() => null);
-  if (existing) return NextResponse.json({ error: 'slug-taken' }, { status: 409 });
+  // Auto-uniquify slug if taken (append -2, -3, etc.)
+  let finalSlug = siteSlug;
+  let counter = 2;
+  while (await platformDb.site.findUnique({ where: { orgId_slug: { orgId: auth.membership.org.id, slug: finalSlug } } }).catch(() => null)) {
+    finalSlug = `${siteSlug}-${counter}`;
+    counter++;
+    if (counter > 100) return NextResponse.json({ error: 'slug-collision-too-many', tried: siteSlug }, { status: 409 });
+  }
 
   // Récupère le template si fourni
   let templateBlocks: any = null;
@@ -72,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const site = await platformDb.site.create({
     data: {
       orgId: auth.membership.org.id,
-      slug: siteSlug,
+      slug: finalSlug,
       name,
       status: 'draft',
       templateId,
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       orgId: auth.membership.org.id,
       action: templateId ? 'site.create-from-template' : 'site.create',
       resource: `site:${site.id}`,
-      metadata: { templateId, siteSlug },
+      metadata: { templateId, siteSlug: finalSlug },
     },
   });
 
