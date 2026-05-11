@@ -121,6 +121,16 @@ export function SuperOrgsClient() {
                           style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f644' }}>
                           🔧 Init tenant
                         </button>
+                        <button onClick={async () => {
+                          if (!confirm(`Publier TOUS les sites en draft de "${o.slug}" ?`)) return;
+                          const r = await fetch(`/api/admin/publish-all-sites?org=${o.slug}`, { method: 'POST' });
+                          const j = await r.json();
+                          alert(j.ok ? `${j.updated} site(s) publié(s) (total ${j.published}/${j.total})` : `Erreur : ${j.error}`);
+                          load();
+                        }} title="Met tous les sites en draft en status='published' (rattrapage anciens sites)"
+                          style={{ ...input, fontSize: 10, padding: '2px 6px', cursor: 'pointer', background: '#d946ef22', color: '#d946ef', border: '1px solid #d946ef44' }}>
+                          📢 Publish all
+                        </button>
                       </div>
                     </div>
                   </td>
