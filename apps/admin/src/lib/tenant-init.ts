@@ -181,6 +181,224 @@ export const TENANT_TABLES: { name: string; sql: string }[] = [
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   ` },
+  { name: 'Event', sql: `
+    CREATE TABLE IF NOT EXISTS "Event" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL UNIQUE,
+      "title" TEXT NOT NULL,
+      "description" TEXT,
+      "startsAt" TIMESTAMP(3) NOT NULL,
+      "endsAt" TIMESTAMP(3),
+      "location" TEXT,
+      "lat" DOUBLE PRECISION,
+      "lng" DOUBLE PRECISION,
+      "coverImage" TEXT,
+      "category" TEXT,
+      "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "externalUrl" TEXT,
+      "published" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Event_startsAt_idx" ON "Event"("startsAt");
+    CREATE INDEX IF NOT EXISTS "Event_category_idx" ON "Event"("category");
+  ` },
+  { name: 'Coupon', sql: `
+    CREATE TABLE IF NOT EXISTS "Coupon" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "code" TEXT NOT NULL UNIQUE,
+      "type" TEXT NOT NULL DEFAULT 'percent',
+      "value" INTEGER NOT NULL DEFAULT 0,
+      "currency" TEXT NOT NULL DEFAULT 'EUR',
+      "minCents" INTEGER,
+      "maxUses" INTEGER,
+      "usedCount" INTEGER NOT NULL DEFAULT 0,
+      "validFrom" TIMESTAMP(3),
+      "validUntil" TIMESTAMP(3),
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "applicableProductIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "notes" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Coupon_active_idx" ON "Coupon"("active");
+  ` },
+  { name: 'Testimonial', sql: `
+    CREATE TABLE IF NOT EXISTS "Testimonial" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "authorName" TEXT NOT NULL,
+      "authorTitle" TEXT,
+      "authorAvatar" TEXT,
+      "videoUrl" TEXT,
+      "posterImage" TEXT,
+      "quote" TEXT,
+      "rating" INTEGER,
+      "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "featured" BOOLEAN NOT NULL DEFAULT false,
+      "published" BOOLEAN NOT NULL DEFAULT true,
+      "position" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Testimonial_published_position_idx" ON "Testimonial"("published", "position");
+  ` },
+  { name: 'YoutubeVideo', sql: `
+    CREATE TABLE IF NOT EXISTS "YoutubeVideo" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "videoId" TEXT NOT NULL UNIQUE,
+      "title" TEXT NOT NULL,
+      "description" TEXT,
+      "thumbnail" TEXT,
+      "channel" TEXT,
+      "publishedAt" TIMESTAMP(3),
+      "category" TEXT,
+      "featured" BOOLEAN NOT NULL DEFAULT false,
+      "position" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "YoutubeVideo_position_idx" ON "YoutubeVideo"("position");
+  ` },
+  { name: 'Banner', sql: `
+    CREATE TABLE IF NOT EXISTS "Banner" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "image" TEXT,
+      "link" TEXT,
+      "ctaLabel" TEXT,
+      "position" TEXT NOT NULL DEFAULT 'hero',
+      "priority" INTEGER NOT NULL DEFAULT 0,
+      "startsAt" TIMESTAMP(3),
+      "endsAt" TIMESTAMP(3),
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "targetPages" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Banner_active_position_idx" ON "Banner"("active", "position");
+  ` },
+  { name: 'MapLocation', sql: `
+    CREATE TABLE IF NOT EXISTS "MapLocation" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "type" TEXT,
+      "address" TEXT,
+      "lat" DOUBLE PRECISION NOT NULL,
+      "lng" DOUBLE PRECISION NOT NULL,
+      "country" TEXT,
+      "city" TEXT,
+      "description" TEXT,
+      "featured" BOOLEAN NOT NULL DEFAULT false,
+      "openingHours" JSONB,
+      "contact" JSONB,
+      "images" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "MapLocation_type_idx" ON "MapLocation"("type");
+    CREATE INDEX IF NOT EXISTS "MapLocation_country_city_idx" ON "MapLocation"("country", "city");
+  ` },
+  { name: 'ModerationItem', sql: `
+    CREATE TABLE IF NOT EXISTS "ModerationItem" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "type" TEXT NOT NULL,
+      "targetId" TEXT,
+      "content" TEXT,
+      "authorName" TEXT,
+      "authorEmail" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "aiScore" DOUBLE PRECISION,
+      "aiLabels" JSONB,
+      "decidedBy" TEXT,
+      "decidedAt" TIMESTAMP(3),
+      "reason" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "ModerationItem_status_createdAt_idx" ON "ModerationItem"("status", "createdAt");
+    CREATE INDEX IF NOT EXISTS "ModerationItem_type_idx" ON "ModerationItem"("type");
+  ` },
+  { name: 'Poster', sql: `
+    CREATE TABLE IF NOT EXISTS "Poster" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "theme" TEXT,
+      "content" JSONB,
+      "imageUrl" TEXT,
+      "sizes" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  ` },
+  { name: 'NewsletterPlan', sql: `
+    CREATE TABLE IF NOT EXISTS "NewsletterPlan" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "year" INTEGER NOT NULL,
+      "month" INTEGER NOT NULL,
+      "theme" TEXT,
+      "subject" TEXT,
+      "audiences" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "scheduledAt" TIMESTAMP(3),
+      "notes" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'planned',
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS "NewsletterPlan_year_month_key" ON "NewsletterPlan"("year", "month");
+  ` },
+  { name: 'SocialPost', sql: `
+    CREATE TABLE IF NOT EXISTS "SocialPost" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "platform" TEXT NOT NULL,
+      "content" TEXT NOT NULL,
+      "mediaUrls" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "scheduledAt" TIMESTAMP(3),
+      "publishedAt" TIMESTAMP(3),
+      "status" TEXT NOT NULL DEFAULT 'draft',
+      "hashtags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+      "externalId" TEXT,
+      "errorMessage" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "SocialPost_scheduledAt_idx" ON "SocialPost"("scheduledAt");
+    CREATE INDEX IF NOT EXISTS "SocialPost_platform_status_idx" ON "SocialPost"("platform", "status");
+  ` },
+  { name: 'RichPage', sql: `
+    CREATE TABLE IF NOT EXISTS "RichPage" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL UNIQUE,
+      "title" TEXT NOT NULL,
+      "bodyHtml" TEXT,
+      "meta" JSONB,
+      "status" TEXT NOT NULL DEFAULT 'draft',
+      "position" INTEGER NOT NULL DEFAULT 0,
+      "parentId" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "RichPage_status_idx" ON "RichPage"("status");
+    CREATE INDEX IF NOT EXISTS "RichPage_parentId_position_idx" ON "RichPage"("parentId", "position");
+  ` },
+  { name: 'Partner', sql: `
+    CREATE TABLE IF NOT EXISTS "Partner" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "slug" TEXT NOT NULL UNIQUE,
+      "logoUrl" TEXT,
+      "websiteUrl" TEXT,
+      "description" TEXT,
+      "category" TEXT,
+      "featured" BOOLEAN NOT NULL DEFAULT false,
+      "position" INTEGER NOT NULL DEFAULT 0,
+      "contactName" TEXT,
+      "contactEmail" TEXT,
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS "Partner_active_position_idx" ON "Partner"("active", "position");
+    CREATE INDEX IF NOT EXISTS "Partner_featured_idx" ON "Partner"("featured");
+  ` },
 ];
 
 /**

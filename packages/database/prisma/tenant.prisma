@@ -385,3 +385,233 @@ model TwoFactorSecret {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ─── EVENTS / AGENDA ───────────────────────────────────────────
+
+model Event {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?  @db.Text
+  startsAt    DateTime
+  endsAt      DateTime?
+  location    String?
+  lat         Float?
+  lng         Float?
+  coverImage  String?
+  category    String?
+  tags        String[] @default([])
+  externalUrl String?
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([startsAt])
+  @@index([category])
+}
+
+// ─── COUPONS / PROMOS ──────────────────────────────────────────
+
+model Coupon {
+  id                   String   @id @default(cuid())
+  code                 String   @unique
+  type                 String   @default("percent") // percent | fixed
+  value                Int      @default(0)
+  currency             String   @default("EUR")
+  minCents             Int?
+  maxUses              Int?
+  usedCount            Int      @default(0)
+  validFrom            DateTime?
+  validUntil           DateTime?
+  active               Boolean  @default(true)
+  applicableProductIds String[] @default([])
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  @@index([active])
+}
+
+// ─── TESTIMONIALS / TÉMOIGNAGES VIDÉO ──────────────────────────
+
+model Testimonial {
+  id           String   @id @default(cuid())
+  authorName   String
+  authorTitle  String?
+  authorAvatar String?
+  videoUrl     String?
+  posterImage  String?
+  quote        String?  @db.Text
+  rating       Int?
+  tags         String[] @default([])
+  featured     Boolean  @default(false)
+  published    Boolean  @default(true)
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([published, position])
+}
+
+// ─── YOUTUBE VIDEOS ────────────────────────────────────────────
+
+model YoutubeVideo {
+  id          String   @id @default(cuid())
+  videoId     String   @unique // 11-char YouTube id
+  title       String
+  description String?  @db.Text
+  thumbnail   String?
+  channel     String?
+  publishedAt DateTime?
+  category    String?
+  featured    Boolean  @default(false)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([position])
+}
+
+// ─── BANNERS / HERO ────────────────────────────────────────────
+
+model Banner {
+  id          String   @id @default(cuid())
+  name        String
+  image       String?
+  link        String?
+  ctaLabel    String?
+  position    String   @default("hero") // top | hero | inline | bottom
+  priority    Int      @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  active      Boolean  @default(true)
+  targetPages String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([active, position])
+}
+
+// ─── MAP LOCATIONS (lieux géolocalisés) ───────────────────────
+
+model MapLocation {
+  id           String   @id @default(cuid())
+  name         String
+  type         String?
+  address      String?
+  lat          Float
+  lng          Float
+  country      String?
+  city         String?
+  description  String?  @db.Text
+  featured     Boolean  @default(false)
+  openingHours Json?
+  contact      Json?
+  images       String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([type])
+  @@index([country, city])
+}
+
+// ─── MODERATION QUEUE ─────────────────────────────────────────
+
+model ModerationItem {
+  id          String   @id @default(cuid())
+  type        String   // forum-post | comment | review | message
+  targetId    String?
+  content     String?  @db.Text
+  authorName  String?
+  authorEmail String?
+  status      String   @default("pending") // pending | approved | rejected | flagged
+  aiScore     Float?
+  aiLabels    Json?
+  decidedBy   String?
+  decidedAt   DateTime?
+  reason      String?
+  createdAt   DateTime @default(now())
+  @@index([status, createdAt])
+  @@index([type])
+}
+
+// ─── POSTERS (affiches générées) ──────────────────────────────
+
+model Poster {
+  id        String   @id @default(cuid())
+  name      String
+  theme     String?
+  content   Json?
+  imageUrl  String?
+  sizes     String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── NEWSLETTER PLAN (plan annuel par mois) ───────────────────
+
+model NewsletterPlan {
+  id          String   @id @default(cuid())
+  year        Int
+  month       Int      // 1..12
+  theme       String?
+  subject     String?
+  audiences   String[] @default([])
+  scheduledAt DateTime?
+  notes       String?  @db.Text
+  status      String   @default("planned") // planned | ready | sent
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([year, month])
+}
+
+// ─── SOCIAL POSTS (calendrier social cross-réseaux) ───────────
+
+model SocialPost {
+  id           String   @id @default(cuid())
+  platform     String   // instagram | facebook | linkedin | twitter | tiktok | youtube
+  content      String   @db.Text
+  mediaUrls    String[] @default([])
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  status       String   @default("draft") // draft | scheduled | published | failed
+  hashtags     String[] @default([])
+  externalId   String?  // id du post sur la plateforme
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([scheduledAt])
+  @@index([platform, status])
+}
+
+// ─── RICH PAGES (pages marketing : about, contact, terms, etc) ─
+
+model RichPage {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  bodyHtml  String?  @db.Text
+  meta      Json?    // { description, ogImage, robots, ... }
+  status    String   @default("draft") // draft | published
+  position  Int      @default(0)
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status])
+  @@index([parentId, position])
+}
+
+// ─── PARTNERS (logos partenaires, sponsors) ───────────────────
+
+model Partner {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  logoUrl      String?
+  websiteUrl   String?
+  description  String?  @db.Text
+  category     String?
+  featured     Boolean  @default(false)
+  position     Int      @default(0)
+  contactName  String?
+  contactEmail String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([active, position])
+  @@index([featured])
+}
