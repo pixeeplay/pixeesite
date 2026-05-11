@@ -13,7 +13,11 @@ import { platformDb } from '@pixeesite/database';
  * pages serveur qui peuvent ensuite getTenantPrisma(slug).
  */
 
-const PLATFORM_DOMAINS = ['pixeesite.app', 'pixeesite.com', 'render.pixeesite.app'];
+const PLATFORM_DOMAINS = ['pixeesite.app', 'pixeesite.com', 'pixeeplay.com', 'render.pixeesite.app'];
+
+// Subdomains réservés à la plateforme (admin, www, marketing) qui ne sont PAS des org slugs.
+// Ex : pixeesite.pixeeplay.com = landing marketing, pas un org "pixeesite"
+const RESERVED_SUBDOMAINS = new Set(['www', 'admin', 'app', 'api', 'pixeesite', 'render', 'docs', 'status']);
 
 // Dev / staging subdomains (sslip.io for Coolify): the org slug comes from a query param `?org=` for testing
 function getDevSlug(req: NextRequest): string | null {
@@ -37,11 +41,15 @@ export async function middleware(req: NextRequest) {
   const devSlug = req.headers.get('x-tenant-slug') || getDevSlug(req);
   if (devSlug) orgSlug = devSlug;
 
-  // Cas 1 : subdomain *.pixeesite.app / *.pixeesite.com
+  // Cas 1 : subdomain *.pixeesite.app / *.pixeesite.com / *.pixeeplay.com
   if (!orgSlug) {
     for (const domain of PLATFORM_DOMAINS) {
       if (host.endsWith(`.${domain}`)) {
-        orgSlug = host.slice(0, -domain.length - 1).split('.')[0];
+        const candidate = host.slice(0, -domain.length - 1).split('.')[0];
+        // Filtre les subdomains réservés (admin, www, etc.) qui ne sont pas des orgs
+        if (candidate && !RESERVED_SUBDOMAINS.has(candidate)) {
+          orgSlug = candidate;
+        }
         break;
       }
     }

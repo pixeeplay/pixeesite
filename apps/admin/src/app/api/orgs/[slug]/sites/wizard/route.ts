@@ -58,8 +58,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
           finalSlug = `${slug}-${counter++}`;
           if (counter > 100) break;
         }
+        // status='published' direct → le site est immédiatement visible sur <orgSlug>.pixeeplay.com
+        // L'utilisateur peut toujours le dépublier après depuis le builder
         const site = await platformDb.site.create({
-          data: { orgId, slug: finalSlug, name: b.name, status: 'draft', templateId: b.templateId || null },
+          data: { orgId, slug: finalSlug, name: b.name, status: 'published', deployedAt: new Date(), templateId: b.templateId || null },
         });
         emit({ step: 'site-created', ok: true, detail: { id: site.id, slug: finalSlug }, progress: 10 });
 
