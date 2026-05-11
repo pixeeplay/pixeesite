@@ -63,7 +63,7 @@ export function OnboardingWizard({ userEmail }: { userEmail: string }) {
                 }} placeholder="Studio Photo Lumière" />
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
-              <div style={{ fontSize: 12, marginBottom: 4 }}>URL : <code style={{ color: draft.primaryColor }}>{draft.slug || 'mon-studio'}.pixeesite.app</code></div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>URL : <code style={{ color: draft.primaryColor }}>{draft.slug || 'mon-studio'}.pixeeplay.com</code></div>
               <input style={{ width: '100%', padding: 12, background: '#0a0a0f', border: '1px solid #3f3f46', borderRadius: 8, color: 'inherit', fontSize: 15, fontFamily: 'monospace' }}
                 value={draft.slug || ''} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} />
             </label>
@@ -146,7 +146,7 @@ export function OnboardingWizard({ userEmail }: { userEmail: string }) {
             <h1 style={{ fontSize: 24, marginTop: 0 }}>🚀 Tout est prêt</h1>
             <div style={{ background: '#0a0a0f', borderRadius: 10, padding: 16, marginBottom: 16, fontSize: 14, lineHeight: 1.7 }}>
               <div><strong>Org :</strong> {draft.name}</div>
-              <div><strong>URL :</strong> <code style={{ color: draft.primaryColor }}>{draft.slug}.pixeesite.app</code></div>
+              <div><strong>URL :</strong> <code style={{ color: draft.primaryColor }}>{draft.slug}.pixeeplay.com</code></div>
               <div><strong>Couleur :</strong> <span style={{ display: 'inline-block', width: 14, height: 14, background: draft.primaryColor, borderRadius: 4, verticalAlign: 'middle', marginRight: 6 }} />{draft.primaryColor}</div>
               <div><strong>Police :</strong> <span style={{ fontFamily: draft.font }}>{draft.font}</span></div>
               <div><strong>Template :</strong> {draft.templateSlug || 'Page blanche'}</div>

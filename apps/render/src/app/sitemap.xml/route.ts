@@ -10,7 +10,7 @@ export async function GET() {
   if (!org) return new NextResponse('', { status: 404 });
   const db = await getCurrentTenantDb();
   const h = await headers();
-  const host = h.get('host') || `${org.slug}.pixeesite.app`;
+  const host = h.get('host') || `${org.slug}.pixeeplay.com`;
   const proto = host.includes('localhost') ? 'http' : 'https';
   const base = `${proto}://${host}`;
 

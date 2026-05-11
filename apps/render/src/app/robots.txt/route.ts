@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const org = await getCurrentOrg();
   const h = await headers();
-  const host = h.get('host') || 'pixeesite.app';
+  const host = h.get('host') || 'pixeeplay.com';
   const proto = host.includes('localhost') ? 'http' : 'https';
 
   // Free plan = noindex
