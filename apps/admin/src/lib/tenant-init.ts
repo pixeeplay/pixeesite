@@ -127,6 +127,48 @@ export const TENANT_TABLES: { name: string; sql: string }[] = [
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   ` },
+  { name: 'Order', sql: `
+    CREATE TABLE IF NOT EXISTS "Order" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "externalId" TEXT,
+      "email" TEXT NOT NULL,
+      "firstName" TEXT, "lastName" TEXT, "phone" TEXT,
+      "shipAddress" TEXT, "shipCity" TEXT, "shipPostal" TEXT, "shipCountry" TEXT,
+      "subtotalCents" INTEGER NOT NULL DEFAULT 0,
+      "shippingCents" INTEGER NOT NULL DEFAULT 0,
+      "taxCents" INTEGER NOT NULL DEFAULT 0,
+      "totalCents" INTEGER NOT NULL,
+      "currency" TEXT NOT NULL DEFAULT 'EUR',
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "items" JSONB NOT NULL DEFAULT '[]'::jsonb,
+      "trackingNumber" TEXT, "trackingUrl" TEXT, "carrier" TEXT,
+      "shippedAt" TIMESTAMP(3), "deliveredAt" TIMESTAMP(3),
+      "refundedCents" INTEGER NOT NULL DEFAULT 0,
+      "refundedAt" TIMESTAMP(3),
+      "dropshipProvider" TEXT, "dropshipOrderId" TEXT, "dropshipStatus" TEXT,
+      "trackToken" TEXT NOT NULL,
+      "notes" TEXT, "metadata" JSONB,
+      "stripeSessionId" TEXT,
+      "shippingAddress" JSONB, "billingAddress" JSONB,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS "Order_trackToken_key" ON "Order"("trackToken");
+    CREATE UNIQUE INDEX IF NOT EXISTS "Order_stripeSessionId_key" ON "Order"("stripeSessionId");
+    CREATE INDEX IF NOT EXISTS "Order_status_createdAt_idx" ON "Order"("status", "createdAt");
+    CREATE INDEX IF NOT EXISTS "Order_email_idx" ON "Order"("email");
+  ` },
+  { name: 'OrderItem', sql: `
+    CREATE TABLE IF NOT EXISTS "OrderItem" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "orderId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      "quantity" INTEGER NOT NULL,
+      "priceCents" INTEGER NOT NULL,
+      "variant" JSONB
+    );
+    CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+  ` },
   { name: 'SitemapEntry', sql: `
     CREATE TABLE IF NOT EXISTS "SitemapEntry" (
       "id" TEXT NOT NULL PRIMARY KEY,
