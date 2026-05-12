@@ -91,12 +91,35 @@ function BlockRenderer({ block }: { block: Block }) {
   const d = block.data || {};
 
   switch (block.type) {
-    case 'text':
-      return <div className="pxs-prose" dangerouslySetInnerHTML={{ __html: d.html || '' }} />;
+    case 'text': {
+      const html = d.html?.trim() || '';
+      if (!html) {
+        // Fallback typographique élégant si vide
+        return (
+          <div className="pxs-prose pxs-prose-storytelling">
+            <p>Cette section accueillera bientôt votre histoire.</p>
+          </div>
+        );
+      }
+      return <div className="pxs-prose pxs-prose-storytelling" dangerouslySetInnerHTML={{ __html: html }} />;
+    }
 
-    case 'image':
-      if (!d.src) return null;
-      return <img src={d.src} alt={d.alt || ''} className="pxs-img" />;
+    case 'image': {
+      if (!d.src) {
+        return (
+          <figure className="pxs-image-fallback">
+            <div className="pxs-image-skeleton" aria-hidden />
+            {d.caption && <figcaption className="pxs-image-caption">{d.caption}</figcaption>}
+          </figure>
+        );
+      }
+      return (
+        <figure className="pxs-image-wrap">
+          <img src={d.src} alt={d.alt || ''} className="pxs-img" />
+          {d.caption && <figcaption className="pxs-image-caption">{d.caption}</figcaption>}
+        </figure>
+      );
+    }
 
     case 'video':
       if (!d.src) return null;
@@ -108,8 +131,10 @@ function BlockRenderer({ block }: { block: Block }) {
 
     case 'cta':
       return (
-        <div className="pxs-cta">
-          <a href={d.href || '#'} className="pxs-button-primary">{d.label || 'Cliquer'}</a>
+        <div className="pxs-cta pxs-cta-rich">
+          {d.title && <h2 className="pxs-cta-title">{d.title}</h2>}
+          {d.subtitle && <p className="pxs-cta-subtitle">{d.subtitle}</p>}
+          <a href={d.href || '#'} className="pxs-button-primary pxs-button-large">{d.label || 'Découvrir'}</a>
         </div>
       );
 
@@ -121,7 +146,7 @@ function BlockRenderer({ block }: { block: Block }) {
         >
           <div className="pxs-hero-overlay" />
           <div className="pxs-hero-content">
-            <h1 className="pxs-h1">{d.title}</h1>
+            <h1 className="pxs-h1">{d.title || 'Bienvenue'}</h1>
             {d.subtitle && <p className="pxs-hero-subtitle">{d.subtitle}</p>}
             {d.cta?.label && <a href={d.cta?.href || '#'} className="pxs-button-light">{d.cta.label}</a>}
           </div>
@@ -131,12 +156,17 @@ function BlockRenderer({ block }: { block: Block }) {
     case 'parallax-hero':
       return (
         <ParallaxHero
-          title={d.title || ''}
+          title={d.title || 'Bienvenue'}
           subtitle={d.subtitle}
           ctaLabel={d.ctaLabel}
           ctaHref={d.ctaHref}
           bgImage={d.bgImage}
-          bgGradient={d.bgGradient}
+          bgGradient={
+            d.bgGradient ||
+            (!d.bgImage
+              ? 'linear-gradient(135deg, var(--pxs-primary, #d946ef) 0%, var(--pxs-secondary, #06b6d4) 100%)'
+              : undefined)
+          }
           midImage={d.midImage}
           fgImage={d.fgImage}
           overlayColor={d.overlayColor}
@@ -145,8 +175,27 @@ function BlockRenderer({ block }: { block: Block }) {
         />
       );
 
-    case 'parallax-slider':
+    case 'parallax-slider': {
       if (!Array.isArray(d.slides) || d.slides.length === 0) return null;
+      // Si une seule slide → on rend en hero statique (parallax-hero) pour éviter le slider vide
+      if (d.slides.length === 1) {
+        const s = d.slides[0];
+        return (
+          <ParallaxHero
+            title={s.title || ''}
+            subtitle={s.subtitle}
+            ctaLabel={s.ctaLabel}
+            ctaHref={s.ctaHref}
+            bgImage={s.image}
+            bgGradient={
+              !s.image
+                ? 'linear-gradient(135deg, var(--pxs-primary, #d946ef) 0%, var(--pxs-secondary, #06b6d4) 100%)'
+                : undefined
+            }
+            height={d.height || '85vh'}
+          />
+        );
+      }
       return (
         <ParallaxSlider
           slides={d.slides}
@@ -155,19 +204,41 @@ function BlockRenderer({ block }: { block: Block }) {
           autoplayDelay={d.autoplayDelay || 6500}
         />
       );
+    }
 
-    case 'columns':
-      if (!Array.isArray(d.columns)) return null;
+    case 'columns': {
+      if (!Array.isArray(d.columns) || d.columns.length === 0) return null;
+      const n = Math.min(d.columns.length, 4);
       return (
-        <div className={`pxs-columns pxs-columns-${Math.min(d.columns.length, 4)}`}>
-          {d.columns.map((c: any, i: number) => (
-            <div key={i} className="pxs-prose" dangerouslySetInnerHTML={{ __html: c.html || '' }} />
-          ))}
+        <div className={`pxs-columns pxs-columns-${n}`}>
+          {d.columns.map((c: any, i: number) => {
+            const html = c?.html?.trim() || '';
+            const hasIcon = !!c?.icon;
+            // Card auto-styling si le contenu contient un h2/h3 (rend la card visible même sans CSS prose lourd)
+            return (
+              <div key={i} className="pxs-col-card">
+                {hasIcon && <div className="pxs-col-icon" aria-hidden>{c.icon}</div>}
+                {html ? (
+                  <div className="pxs-prose pxs-prose-card" dangerouslySetInnerHTML={{ __html: html }} />
+                ) : (
+                  <div className="pxs-prose pxs-prose-card">
+                    {c?.title && <h3>{c.title}</h3>}
+                    {c?.body && <p>{c.body}</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       );
+    }
 
     case 'embed':
-      return <div dangerouslySetInnerHTML={{ __html: d.html || '' }} />;
+      if (d.html?.trim()) return <div className="pxs-embed" dangerouslySetInnerHTML={{ __html: d.html }} />;
+      if (d.src) {
+        return <iframe src={d.src} className="pxs-iframe" allowFullScreen />;
+      }
+      return null;
 
     case 'spacer':
       return <div style={{ height: d.height || 60 }} />;
@@ -196,7 +267,7 @@ const PXS_LAYOUT_CSS = `
   .pxs-w-2-3 { width: 66.666%; }
   .pxs-w-3-4 { width: 75%; }
 }
-.pxs-prose { color: var(--pxs-foreground); font-family: var(--pxs-font-body); line-height: 1.7; }
+.pxs-prose { color: var(--pxs-foreground); font-family: var(--pxs-font-body); line-height: 1.75; font-size: 1.0625rem; }
 .pxs-prose h1, .pxs-prose h2, .pxs-prose h3, .pxs-prose h4 { font-family: var(--pxs-font-heading); font-weight: 700; line-height: 1.2; margin-top: 2em; margin-bottom: 0.5em; }
 .pxs-prose h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
 .pxs-prose h2 { font-size: clamp(1.5rem, 4vw, 2.5rem); }
@@ -205,18 +276,56 @@ const PXS_LAYOUT_CSS = `
 .pxs-prose strong { color: var(--pxs-primary); font-weight: 700; }
 .pxs-prose a { color: var(--pxs-primary); text-decoration: underline; }
 .pxs-prose ul, .pxs-prose ol { padding-left: 1.5em; }
-.pxs-img { width: 100%; height: auto; border-radius: var(--pxs-radius); display: block; }
+/* Storytelling-grade prose: large readable max-width centered */
+.pxs-prose-storytelling { max-width: 720px; margin: 0 auto; font-size: clamp(1.0625rem, 1.6vw, 1.1875rem); }
+.pxs-prose-card { font-size: 0.9375rem; line-height: 1.65; }
+.pxs-prose-card h3 { margin-top: 0; font-size: 1.25rem; }
+.pxs-prose-card p { margin: 0.6em 0; opacity: 0.85; }
+/* Image */
+.pxs-image-wrap { margin: 0; }
+.pxs-img {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: cover;
+  border-radius: var(--pxs-radius);
+  display: block;
+}
+.pxs-image-caption { margin-top: 0.6em; font-size: 0.85rem; opacity: 0.65; text-align: center; }
+.pxs-image-fallback { margin: 0; }
+.pxs-image-skeleton {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: var(--pxs-radius);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pxs-primary, #d946ef) 25%, transparent), color-mix(in srgb, var(--pxs-secondary, #06b6d4) 25%, transparent));
+  position: relative;
+  overflow: hidden;
+}
+.pxs-image-skeleton::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: pxs-shimmer 2.4s linear infinite;
+}
+@keyframes pxs-shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+/* Iframe & embed */
 .pxs-iframe { width: 100%; aspect-ratio: 16/9; border: 0; border-radius: var(--pxs-radius); }
+.pxs-embed iframe, .pxs-embed video { width: 100%; border-radius: var(--pxs-radius); border: 0; }
+/* CTA */
 .pxs-cta { text-align: center; padding: var(--pxs-spacing-md) 0; }
+.pxs-cta-rich { padding: var(--pxs-spacing-lg) var(--pxs-spacing-md); }
+.pxs-cta-title { font-family: var(--pxs-font-heading); font-size: clamp(1.5rem, 3.5vw, 2.25rem); font-weight: 800; margin: 0 0 0.4em; }
+.pxs-cta-subtitle { font-size: 1rem; opacity: 0.7; max-width: 42rem; margin: 0 auto 1.6em; line-height: 1.6; }
 .pxs-button-primary {
   display: inline-block;
   background: linear-gradient(135deg, var(--pxs-primary), var(--pxs-secondary));
   color: white; font-weight: 700;
   padding: 0.75em 1.75em; border-radius: 999px; text-decoration: none;
-  font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s;
+  font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
   box-shadow: 0 8px 24px -8px var(--pxs-primary);
 }
-.pxs-button-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px var(--pxs-primary); }
+.pxs-button-primary:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 14px 36px -8px var(--pxs-primary); filter: brightness(1.06); }
+.pxs-button-large { font-size: 1.0625rem; padding: 0.95em 2.2em; }
 .pxs-button-light {
   display: inline-block; background: white; color: #18181b;
   font-weight: 700; padding: 0.75em 1.5em; border-radius: 999px; text-decoration: none;
@@ -230,14 +339,39 @@ const PXS_LAYOUT_CSS = `
 .pxs-hero-content { position: relative; z-index: 1; }
 .pxs-h1 { font-family: var(--pxs-font-heading); font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; color: white; margin: 0 0 0.5em; }
 .pxs-hero-subtitle { color: rgba(255,255,255,0.92); font-size: 1.125rem; max-width: 42rem; margin: 0 auto 1.5em; }
+/* Columns — responsive grid with card styling */
 .pxs-columns { display: grid; gap: var(--pxs-spacing-md); }
 .pxs-columns-1 { grid-template-columns: 1fr; }
 .pxs-columns-2 { grid-template-columns: 1fr; }
 .pxs-columns-3 { grid-template-columns: 1fr; }
 .pxs-columns-4 { grid-template-columns: 1fr; }
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .pxs-columns-2 { grid-template-columns: repeat(2, 1fr); }
+  .pxs-columns-3 { grid-template-columns: repeat(2, 1fr); }
+  .pxs-columns-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 960px) {
   .pxs-columns-3 { grid-template-columns: repeat(3, 1fr); }
   .pxs-columns-4 { grid-template-columns: repeat(4, 1fr); }
+}
+.pxs-col-card {
+  padding: var(--pxs-spacing-md);
+  border-radius: var(--pxs-radius);
+  background: color-mix(in srgb, var(--pxs-foreground, #fafafa) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pxs-foreground, #fafafa) 8%, transparent);
+  transition: transform .25s, border-color .25s, background .25s;
+}
+.pxs-col-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--pxs-primary, #d946ef) 50%, transparent);
+  background: color-mix(in srgb, var(--pxs-foreground, #fafafa) 6%, transparent);
+}
+.pxs-col-icon {
+  font-size: 2rem;
+  width: 52px; height: 52px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pxs-primary, #d946ef) 80%, transparent), color-mix(in srgb, var(--pxs-secondary, #06b6d4) 80%, transparent));
+  margin-bottom: 12px;
 }
 `;

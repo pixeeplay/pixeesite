@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { getTenantPrisma, platformDb } from '@pixeesite/database';
-import { PageBlocksRenderer, EffectsStyles, type Block, type SiteTheme } from '@pixeesite/blocks';
+import { PageBlocksRenderer, EffectsStyles, ThemeProvider, type Block, type SiteTheme } from '@pixeesite/blocks';
+import { SiteHeader, type SiteNavPage } from '@/components/SiteHeader';
+import { SiteFooter, type SiteFooterSocial } from '@/components/SiteFooter';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
@@ -52,7 +54,7 @@ export default async function TenantPage({ params }: { params: Promise<{ slug?: 
       sites: {
         where: { status: 'published' },
         orderBy: { createdAt: 'asc' },
-        select: { id: true, slug: true, theme: true, name: true, description: true, pageCount: true },
+        select: { id: true, slug: true, theme: true, name: true, description: true, pageCount: true, settings: true },
       },
     },
   });
@@ -67,8 +69,8 @@ export default async function TenantPage({ params }: { params: Promise<{ slug?: 
       return <EmptyOrgLanding orgName={org.name} orgSlug={orgSlug} />;
     }
     if (org.sites.length === 1) {
-      // Un seul site → on rend sa home directement à `/`
-      return await renderSitePage(org, orgSlug, org.sites[0]!, '/');
+      // Un seul site → on rend sa home directement à `/` (pas de prefix de slug)
+      return await renderSitePage(org, orgSlug, org.sites[0]!, '/', '');
     }
     // Plusieurs sites → index
     return <SitesIndex org={org} />;
@@ -80,7 +82,9 @@ export default async function TenantPage({ params }: { params: Promise<{ slug?: 
   if (!site) notFound();
 
   const pagePath = segments.length > 1 ? '/' + segments.slice(1).join('/') : '/';
-  return await renderSitePage(org, orgSlug, site, pagePath);
+  // Si l'org n'a qu'un seul site et que l'URL contient son slug, on garde le prefix
+  // pour rester cohérent avec les liens (sinon header/footer pointeraient vers /<slug>/...)
+  return await renderSitePage(org, orgSlug, site, pagePath, siteSlug);
 }
 
 // ── Rendu d'une page d'un site ─────────────────────────────────────────────
@@ -88,14 +92,25 @@ export default async function TenantPage({ params }: { params: Promise<{ slug?: 
 async function renderSitePage(
   org: any,
   orgSlug: string,
-  site: { id: string; slug: string; theme: any; name: string },
-  pagePath: string
+  site: { id: string; slug: string; theme: any; name: string; description?: string | null; settings?: any },
+  pagePath: string,
+  siteSlugPrefix: string
 ) {
   const tenantDb = await getTenantPrisma(orgSlug);
+
+  // 1) page courante
   const page = await tenantDb.sitePage.findFirst({
     where: { siteId: site.id, slug: pagePath, visible: true },
   });
   if (!page) notFound();
+
+  // 2) toutes les pages visibles pour la nav (home en 1er, puis slug ASC)
+  const allPages = await tenantDb.sitePage.findMany({
+    where: { siteId: site.id, visible: true },
+    orderBy: [{ isHome: 'desc' }, { slug: 'asc' }],
+    select: { slug: true, title: true },
+  });
+  const pagesNav: SiteNavPage[] = allPages.map((p) => ({ slug: p.slug, title: p.title }));
 
   const theme: SiteTheme = {
     primary: org.primaryColor,
@@ -105,11 +120,38 @@ async function renderSitePage(
   };
 
   const blocks = (page.blocks as unknown as Block[]) || [];
+
+  // Sociaux : on accepte Site.settings.socials (array { label, url }) ou Org.socials
+  let socials: SiteFooterSocial[] = [];
+  const rawSocials = (site.settings as any)?.socials ?? (org as any)?.socials;
+  if (Array.isArray(rawSocials)) {
+    socials = rawSocials
+      .map((s: any) => ({ label: String(s?.label || s?.name || s?.type || ''), url: String(s?.url || s?.href || '') }))
+      .filter((s: SiteFooterSocial) => s.label && s.url);
+  }
+
   return (
-    <>
+    <ThemeProvider theme={theme}>
       <EffectsStyles />
-      <PageBlocksRenderer blocks={blocks} theme={theme} />
-    </>
+      <SiteHeader
+        siteName={site.name}
+        siteSlug={siteSlugPrefix}
+        pages={pagesNav}
+        currentSlug={pagePath}
+        logoUrl={org.logoUrl}
+      />
+      <main>
+        <PageBlocksRenderer blocks={blocks} theme={theme} />
+      </main>
+      <SiteFooter
+        siteName={site.name}
+        orgName={org.name}
+        siteSlug={siteSlugPrefix}
+        pages={pagesNav}
+        description={site.description || null}
+        socials={socials}
+      />
+    </ThemeProvider>
   );
 }
 
