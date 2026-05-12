@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { getTenantPrisma, platformDb } from '@pixeesite/database';
-import { PageBlocksRenderer, EffectsStyles, ThemeProvider, type Block, type SiteTheme } from '@pixeesite/blocks';
+import { PageBlocksRenderer, EffectsStyles, ThemeProvider, GoogleFontsLoader, type Block, type SiteTheme } from '@pixeesite/blocks';
 import { SiteHeader, type SiteNavPage } from '@/components/SiteHeader';
 import { SiteFooter, type SiteFooterSocial } from '@/components/SiteFooter';
 
@@ -112,12 +112,17 @@ async function renderSitePage(
   });
   const pagesNav: SiteNavPage[] = allPages.map((p) => ({ slug: p.slug, title: p.title }));
 
-  const theme: SiteTheme = {
-    primary: org.primaryColor,
-    fontHeading: org.font,
-    fontBody: org.font,
-    ...(site.theme as SiteTheme || {}),
+  // Theme : fallback Org (primaryColor + font global), puis SITE.theme OVERRIDE.
+  // Site.theme est le résultat du wizard (palette dérivée + fonts whitelistées).
+  const orgFallback: SiteTheme = {
+    primary: org.primaryColor || undefined,
+    fontHeading: org.font || undefined,
+    fontBody: org.font || undefined,
+    fontHeadingName: org.font || undefined,
+    fontBodyName: org.font || undefined,
   };
+  const siteOverride = (site.theme as SiteTheme | null) || {};
+  const theme: SiteTheme = { ...orgFallback, ...siteOverride };
 
   const blocks = (page.blocks as unknown as Block[]) || [];
 
@@ -132,6 +137,7 @@ async function renderSitePage(
 
   return (
     <ThemeProvider theme={theme}>
+      <GoogleFontsLoader theme={theme} />
       <EffectsStyles />
       <SiteHeader
         siteName={site.name}

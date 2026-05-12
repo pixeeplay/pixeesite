@@ -2,7 +2,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { EFFECTS, EFFECT_CATEGORIES, type Effect, type EffectCategory } from '@pixeesite/blocks';
+import {
+  EFFECTS, EFFECT_CATEGORIES, type Effect, type EffectCategory,
+  PageBlocksRenderer, EffectsStyles, GoogleFontsLoader,
+  type SiteTheme, type Block as RendererBlock,
+} from '@pixeesite/blocks';
 
 export interface Block {
   id?: string;
@@ -54,8 +58,21 @@ export function PageBuilderEditor(props: Props) {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const [previewMode, setPreviewMode] = useState<'live' | 'blocks'>('blocks');
+  // 'preview' = rendu live via <PageBlocksRenderer> avec les blocs en cours d'édition (INSTANTANÉ).
+  // 'live'    = iframe vers le site déployé (nécessite Save + reload pour voir les changements).
+  // 'blocks'  = aperçu compact des cards (mode dev).
+  const [previewMode, setPreviewMode] = useState<'preview' | 'live' | 'blocks'>('preview');
   const [iframeKey, setIframeKey] = useState(0);
+
+  // Theme dérivé des props (primaryColor + font choisis dans le wizard).
+  // Sert au rendu du mode "Preview live" pour matcher le site déployé.
+  const previewTheme: SiteTheme = {
+    primary: props.theme?.primary || '#d946ef',
+    fontHeading: props.theme?.font ? `"${props.theme.font}", system-ui, sans-serif` : undefined,
+    fontBody: props.theme?.font ? `"${props.theme.font}", system-ui, sans-serif` : undefined,
+    fontHeadingName: props.theme?.font || undefined,
+    fontBodyName: props.theme?.font || undefined,
+  };
 
   // URL publique : <orgSlug>.pixeeplay.com/<siteSlug>[/page]
   // Fallback orgDefaultDomain si custom domain configuré, sinon localhost en dev
@@ -233,12 +250,42 @@ export function PageBuilderEditor(props: Props) {
 
           {/* Preview */}
           <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: 4, padding: 8, background: '#18181b', borderBottom: '1px solid #27272a' }}>
-              <button onClick={() => setPreviewMode('live')} style={{ background: previewMode === 'live' ? '#d946ef' : 'transparent', color: previewMode === 'live' ? 'white' : '#a1a1aa', border: 0, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🌐 Live</button>
-              <button onClick={() => setPreviewMode('blocks')} style={{ background: previewMode === 'blocks' ? '#d946ef' : 'transparent', color: previewMode === 'blocks' ? 'white' : '#a1a1aa', border: 0, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>🧩 Blocs ({blocks.length})</button>
-              <button onClick={() => setIframeKey((k) => k + 1)} style={{ marginLeft: 'auto', background: 'transparent', color: '#a1a1aa', border: 0, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>🔄</button>
+            <div style={{ display: 'flex', gap: 4, padding: 8, background: '#18181b', borderBottom: '1px solid #27272a', position: 'sticky', top: 0, zIndex: 2 }}>
+              <button
+                onClick={() => setPreviewMode('preview')}
+                title="Rendu instantané des modifs en cours (PageBlocksRenderer)"
+                style={{ background: previewMode === 'preview' ? 'linear-gradient(135deg,#d946ef,#06b6d4)' : 'transparent', color: previewMode === 'preview' ? 'white' : '#a1a1aa', border: 0, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+              >
+                🎨 Preview live
+              </button>
+              <button
+                onClick={() => setPreviewMode('live')}
+                title="iframe vers le site déployé (nécessite Save)"
+                style={{ background: previewMode === 'live' ? '#d946ef' : 'transparent', color: previewMode === 'live' ? 'white' : '#a1a1aa', border: 0, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+              >
+                🌐 Site déployé
+              </button>
+              <button
+                onClick={() => setPreviewMode('blocks')}
+                title="Liste compacte des blocs (dev)"
+                style={{ background: previewMode === 'blocks' ? '#d946ef' : 'transparent', color: previewMode === 'blocks' ? 'white' : '#a1a1aa', border: 0, padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+              >
+                🧩 Blocs ({blocks.length})
+              </button>
+              {previewMode === 'live' && (
+                <button onClick={() => setIframeKey((k) => k + 1)} style={{ marginLeft: 'auto', background: 'transparent', color: '#a1a1aa', border: 0, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>🔄</button>
+              )}
             </div>
-            {previewMode === 'live' ? (
+            {previewMode === 'preview' ? (
+              <div style={{ flex: 1, overflow: 'auto', background: '#0a0a0f' }}>
+                <GoogleFontsLoader theme={previewTheme} />
+                <EffectsStyles />
+                <PageBlocksRenderer
+                  blocks={blocks.filter((b) => b.visible !== false) as RendererBlock[]}
+                  theme={previewTheme}
+                />
+              </div>
+            ) : previewMode === 'live' ? (
               <iframe key={iframeKey} src={livePreviewUrl} style={{ flex: 1, border: 0, background: 'white' }} />
             ) : (
               <div style={{ flex: 1, overflow: 'auto', padding: 16, background: '#0a0a0f' }}>
