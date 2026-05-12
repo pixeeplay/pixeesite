@@ -7,6 +7,7 @@ import {
   PageBlocksRenderer, EffectsStyles, GoogleFontsLoader,
   type SiteTheme, type Block as RendererBlock,
 } from '@pixeesite/blocks';
+import { MediaLibrary, MediaLibraryToolbarButton, type MediaResult } from './MediaLibrary';
 
 export interface Block {
   id?: string;
@@ -63,6 +64,65 @@ export function PageBuilderEditor(props: Props) {
   // 'blocks'  = aperçu compact des cards (mode dev).
   const [previewMode, setPreviewMode] = useState<'preview' | 'live' | 'blocks'>('preview');
   const [iframeKey, setIframeKey] = useState(0);
+  const [mediaLibOpen, setMediaLibOpen] = useState(false);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+
+  /** Applique un média sur un bloc en fonction du type. */
+  function applyMediaToBlock(idx: number, m: MediaResult, useAs?: string) {
+    const block = blocks[idx];
+    if (!block) return;
+    const target = useAs || block.type;
+    if (target === 'parallax-hero' || target === 'hero') {
+      updateData(idx, m.type === 'video' ? { bgVideo: m.url, alt: m.alt } : { bgImage: m.url, alt: m.alt });
+    } else if (target === 'parallax-slider') {
+      const slides = Array.isArray(block.data?.slides) ? [...block.data.slides] : [];
+      slides[0] = { ...(slides[0] || {}), image: m.url, alt: m.alt };
+      updateData(idx, { slides });
+    } else if (target === 'gallery') {
+      const items = Array.isArray(block.data?.items) ? [...block.data.items] : [];
+      items.push({ src: m.url, alt: m.alt });
+      updateData(idx, { items });
+    } else if (target === 'cta-banner') {
+      updateData(idx, { bgImage: m.url, alt: m.alt });
+    } else if (block.type === 'video' || m.type === 'video' || m.type === 'youtube') {
+      updateData(idx, { src: m.url });
+    } else {
+      updateData(idx, { src: m.url, alt: m.alt || block.data?.alt || '' });
+    }
+  }
+
+  /** Insertion depuis la lib quand pas de bloc édité : crée un bloc image/video. */
+  function insertMediaAsBlock(m: MediaResult, useAs?: string) {
+    if (editingIdx != null) {
+      applyMediaToBlock(editingIdx, m, useAs);
+      return;
+    }
+    // Crée un bloc selon le type
+    const newBlock: Block = {
+      position: blocks.length,
+      width: 'full',
+      type: useAs === 'parallax-hero' ? 'parallax-hero'
+        : useAs === 'parallax-slider' ? 'parallax-slider'
+        : useAs === 'cta-banner' ? 'cta'
+        : m.type === 'video' || m.type === 'youtube' ? 'video'
+        : 'image',
+      data: {},
+      effect: 'fade-up',
+      effectDelay: blocks.length * 100,
+      visible: true,
+    };
+    if (newBlock.type === 'parallax-hero') {
+      newBlock.data = { title: 'Titre', subtitle: '', bgImage: m.url, height: '90vh' };
+    } else if (newBlock.type === 'parallax-slider') {
+      newBlock.data = { slides: [{ image: m.url, title: 'Slide 1', alt: m.alt }], height: '85vh' };
+    } else if (newBlock.type === 'video') {
+      newBlock.data = { src: m.url };
+    } else {
+      newBlock.data = { src: m.url, alt: m.alt || '' };
+    }
+    setBlocks((prev) => [...prev, newBlock]);
+    setEditingIdx(blocks.length);
+  }
 
   // Theme dérivé des props (primaryColor + font choisis dans le wizard).
   // Sert au rendu du mode "Preview live" pour matcher le site déployé.
@@ -182,6 +242,7 @@ export function PageBuilderEditor(props: Props) {
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             {savedAt && <span style={{ fontSize: 11, color: '#10b981' }}>✓ Sauvé {savedAt.toLocaleTimeString('fr-FR')}</span>}
             <a href={livePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#06b6d4', textDecoration: 'none' }}>↗ Voir live</a>
+            {props.canEdit && <MediaLibraryToolbarButton onClick={() => setMediaLibOpen(true)} />}
             {props.canEdit && (
               <button onClick={() => save()} disabled={saving} style={{ background: 'linear-gradient(135deg, #d946ef, #06b6d4)', color: 'white', border: 0, padding: '8px 16px', borderRadius: 8, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.5 : 1 }}>
                 {saving ? 'Sauvegarde…' : '💾 Enregistrer'}
@@ -219,14 +280,49 @@ export function PageBuilderEditor(props: Props) {
                   key={i}
                   draggable={props.canEdit}
                   onDragStart={() => setDraggedIdx(i)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => { if (draggedIdx != null && draggedIdx !== i) moveBlock(draggedIdx, i); setDraggedIdx(null); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    // Détecte drop média (depuis MediaLibrary)
+                    const types = e.dataTransfer.types;
+                    if (types.includes('application/x-pxs-media') || types.includes('text/plain')) {
+                      setDropTargetIdx(i);
+                      e.dataTransfer.dropEffect = 'copy';
+                    }
+                  }}
+                  onDragLeave={() => setDropTargetIdx(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDropTargetIdx(null);
+                    // 1) Drop média venant de la lib
+                    const mediaJson = e.dataTransfer.getData('application/x-pxs-media');
+                    if (mediaJson) {
+                      try {
+                        const m: MediaResult = JSON.parse(mediaJson);
+                        applyMediaToBlock(i, m);
+                        setEditingIdx(i);
+                        return;
+                      } catch {}
+                    }
+                    const txt = e.dataTransfer.getData('text/plain');
+                    if (txt && /^https?:\/\//.test(txt)) {
+                      // URL nue → apply comme image/src
+                      applyMediaToBlock(i, { id: 'drop', type: 'photo', url: txt, thumb: txt, source: 'local' } as any);
+                      setEditingIdx(i);
+                      return;
+                    }
+                    // 2) Sinon reorder de blocs
+                    if (draggedIdx != null && draggedIdx !== i) moveBlock(draggedIdx, i);
+                    setDraggedIdx(null);
+                  }}
                   onClick={() => setEditingIdx(i)}
                   style={{
-                    background: '#18181b',
-                    border: editingIdx === i ? '1px solid #d946ef' : '1px solid #27272a',
+                    background: dropTargetIdx === i ? '#d946ef22' : '#18181b',
+                    border: dropTargetIdx === i
+                      ? '2px dashed #d946ef'
+                      : editingIdx === i ? '1px solid #d946ef' : '1px solid #27272a',
                     borderRadius: 10, padding: 10, marginBottom: 6, cursor: 'pointer',
                     opacity: draggedIdx === i ? 0.3 : (b.visible === false ? 0.5 : 1),
+                    transition: 'background .15s, border-color .15s',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
@@ -306,6 +402,15 @@ export function PageBuilderEditor(props: Props) {
           onClose={() => setEditingIdx(null)}
         />
       )}
+
+      {/* ─── Media Library ─── */}
+      <MediaLibrary
+        orgSlug={props.orgSlug}
+        suggestions={[props.siteName, props.pageTitle].filter(Boolean) as string[]}
+        open={mediaLibOpen}
+        onClose={() => setMediaLibOpen(false)}
+        onInsert={(m, useAs) => insertMediaAsBlock(m, useAs)}
+      />
     </div>
   );
 }
@@ -476,68 +581,182 @@ const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 10, opacity: 0.5, textTransform: 'uppercase', marginTop: 10, marginBottom: 4, letterSpacing: 1,
 };
 
-/* ─── Effect picker (modal des 100 effets) ────────────────────────── */
+/* ─── Effect picker (popover compact des 100 effets) ─────────────── */
 function EffectPicker({ value, onChange }: { value?: string | null; onChange: (v: string | null) => void }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<EffectCategory>('entry');
   const [search, setSearch] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
   const selected = value ? EFFECTS.find((e) => e.id === value) : null;
   const filtered = search
     ? EFFECTS.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()) || e.id.includes(search.toLowerCase()))
     : EFFECTS.filter((e) => e.category === tab);
 
+  // Ferme au ESC et au clic en dehors
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    function onClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClickOutside);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClickOutside);
+    };
+  }, [open]);
+
+  function intensityBadge(intensity?: string) {
+    if (!intensity) return null;
+    const map: Record<string, { bg: string; fg: string; label: string }> = {
+      subtle: { bg: '#3b82f622', fg: '#60a5fa', label: 'subtle' },
+      medium: { bg: '#a78bfa22', fg: '#a78bfa', label: 'medium' },
+      wow:    { bg: '#d946ef33', fg: '#e879f9', label: 'WOW' },
+    };
+    const m = map[intensity] || map.medium;
+    return (
+      <span style={{ fontSize: 9, padding: '1px 4px', background: m.bg, color: m.fg, borderRadius: 3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{m.label}</span>
+    );
+  }
+
   return (
-    <>
+    <div ref={wrapRef} style={{ position: 'relative' }}>
       <label style={{ display: 'block' }}>
         <span style={labelStyle}>Effet ✨ (parmi 100)</span>
-        <button type="button" onClick={() => setOpen(true)} style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {selected ? <>{selected.emoji} {selected.name} {selected.intensity === 'wow' && <span style={{ fontSize: 9, padding: '1px 4px', background: '#d946ef33', color: '#d946ef', borderRadius: 3 }}>WOW</span>}</> : <span style={{ opacity: 0.5 }}>Aucun</span>}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label="Sélectionner un effet visuel"
+          style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          {selected ? (
+            <>
+              <span>{selected.emoji}</span>
+              <span>{selected.name}</span>
+              {intensityBadge(selected.intensity)}
+              <span style={{ marginLeft: 'auto', opacity: 0.5 }}>▾</span>
+            </>
+          ) : (
+            <>
+              <span style={{ opacity: 0.5 }}>Aucun</span>
+              <span style={{ marginLeft: 'auto', opacity: 0.5 }}>▾</span>
+            </>
+          )}
         </button>
       </label>
       {open && (
-        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#0a0a0f', border: '1px solid #d946ef40', borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <header style={{ padding: 12, borderBottom: '1px solid #27272a', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <strong style={{ fontSize: 14 }}>✨ 100 effets wahoo</strong>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" style={{ ...inputStyle, marginLeft: 'auto', width: 180 }} />
-              <button onClick={() => { onChange(null); setOpen(false); }} style={{ background: 'transparent', border: 0, color: '#a1a1aa', padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}>Aucun</button>
-              <button onClick={() => setOpen(false)} style={{ background: 'transparent', border: 0, color: '#a1a1aa', fontSize: 16, cursor: 'pointer' }}>✕</button>
-            </header>
-            {!search && (
-              <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: 8, borderBottom: '1px solid #27272a' }}>
-                {EFFECT_CATEGORIES.map((c) => {
-                  const count = EFFECTS.filter((e) => e.category === c.id).length;
-                  if (!count) return null;
-                  return (
-                    <button key={c.id} onClick={() => setTab(c.id)} style={{ background: tab === c.id ? '#d946ef' : '#18181b', color: tab === c.id ? 'white' : '#a1a1aa', border: 0, padding: '6px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
-                      {c.emoji} {c.label} ({count})
-                    </button>
-                  );
-                })}
-              </nav>
-            )}
-            <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
-              {filtered.map((fx) => (
+        <div
+          role="listbox"
+          aria-label="Effets visuels"
+          style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+            zIndex: 40,
+            background: '#0a0a0f', border: '1px solid #d946ef55',
+            borderRadius: 12, boxShadow: '0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(217,70,239,0.15)',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            maxHeight: 460,
+            animation: 'pxs-fx-pop .15s ease-out',
+          }}
+        >
+          <header style={{ padding: 8, borderBottom: '1px solid #27272a', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <strong style={{ fontSize: 12, color: '#fafafa' }}>✨ Effets</strong>
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher…"
+              aria-label="Rechercher un effet"
+              style={{ ...inputStyle, marginLeft: 'auto', width: 140, padding: 6, fontSize: 11 }}
+            />
+            <button
+              type="button"
+              onClick={() => { onChange(null); setOpen(false); }}
+              aria-label="Désélectionner l'effet"
+              style={{ background: 'transparent', border: '1px solid #3f3f46', color: '#a1a1aa', padding: '4px 8px', fontSize: 11, cursor: 'pointer', borderRadius: 6 }}
+            >Aucun</button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Fermer le sélecteur"
+              style={{ background: 'transparent', border: 0, color: '#a1a1aa', fontSize: 16, cursor: 'pointer', padding: '0 4px' }}
+            >✕</button>
+          </header>
+          {!search && (
+            <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: 6, borderBottom: '1px solid #27272a' }}>
+              {EFFECT_CATEGORIES.map((c) => {
+                const count = EFFECTS.filter((e) => e.category === c.id).length;
+                if (!count) return null;
+                return (
+                  <button
+                    type="button"
+                    key={c.id}
+                    onClick={() => setTab(c.id)}
+                    aria-pressed={tab === c.id}
+                    style={{
+                      background: tab === c.id ? '#d946ef' : '#18181b',
+                      color: tab === c.id ? 'white' : '#a1a1aa',
+                      border: 0, padding: '4px 8px', borderRadius: 6, fontSize: 10, cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {c.emoji} {c.label} ({count})
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+          <div
+            style={{
+              flex: 1, overflow: 'auto', padding: 6,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+              gap: 4,
+            }}
+          >
+            {filtered.map((fx) => {
+              const isActive = value === fx.id;
+              return (
                 <button
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
                   key={fx.id}
                   onClick={() => { onChange(fx.id); setOpen(false); }}
+                  title={`${fx.name} — ${fx.desc || ''}${fx.intensity ? ' (' + fx.intensity + ')' : ''}`}
                   style={{
-                    background: value === fx.id ? '#d946ef25' : '#18181b',
-                    border: value === fx.id ? '1px solid #d946ef' : '1px solid #27272a',
-                    borderRadius: 8, padding: 8, cursor: 'pointer', textAlign: 'left',
-                    color: 'inherit',
+                    background: isActive ? 'linear-gradient(135deg, #d946ef33, #06b6d433)' : '#18181b',
+                    border: isActive ? '1px solid #d946ef' : '1px solid #27272a',
+                    borderRadius: 6, padding: '6px 4px', cursor: 'pointer', textAlign: 'center',
+                    color: 'inherit', position: 'relative', minHeight: 60,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                    transition: 'transform .12s, border-color .12s',
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.borderColor = '#d946ef88'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = isActive ? '#d946ef' : '#27272a'; }}
                 >
-                  <div style={{ fontSize: 18 }}>{fx.emoji}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{fx.name}</div>
-                  <div style={{ fontSize: 10, opacity: 0.5 }}>{fx.desc}</div>
+                  <span style={{ fontSize: 16 }}>{fx.emoji}</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, lineHeight: 1.1 }}>{fx.name}</span>
+                  {fx.intensity === 'wow' && (
+                    <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 7, padding: '0 3px', background: '#d946ef', color: 'white', borderRadius: 2, fontWeight: 700 }}>W</span>
+                  )}
                 </button>
-              ))}
-            </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: 16, textAlign: 'center', opacity: 0.5, fontSize: 12 }}>
+                Aucun effet trouvé
+              </div>
+            )}
           </div>
         </div>
       )}
-    </>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes pxs-fx-pop { from { opacity: 0; transform: translateY(-4px) scale(.98) } to { opacity: 1; transform: translateY(0) scale(1) } }` }} />
+    </div>
   );
 }
 

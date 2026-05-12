@@ -5,62 +5,51 @@ import { requireOrgMember } from '@/lib/auth-helpers';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'product';
-}
-
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try { await requireOrgMember(slug); } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 403 }); }
+  const url = new URL(req.url);
+  const productId = url.searchParams.get('productId');
+  if (!productId) return NextResponse.json({ error: 'productId required' }, { status: 400 });
   const db = await getTenantPrisma(slug);
-  const items = await db.product.findMany({ orderBy: { createdAt: 'desc' } }).catch(() => []);
-  return NextResponse.json({ items });
+  const items = await (db as any).productVariant?.findMany?.({ where: { productId }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] }).catch(() => []);
+  return NextResponse.json({ items: items || [] });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try { await requireOrgMember(slug, ['owner', 'admin', 'editor']); } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 403 }); }
-  const b = await req.json();
+  const b = await req.json().catch(() => ({}));
+  if (!b.productId || !b.name) return NextResponse.json({ error: 'productId and name required' }, { status: 400 });
   const db = await getTenantPrisma(slug);
-  let s = slugify(b.slug || b.name || 'product');
-  let counter = 1;
-  while (await db.product.findUnique({ where: { slug: s } })) {
-    s = `${slugify(b.name || 'product')}-${counter++}`;
-  }
-  const product = await db.product.create({
+  const v = await (db as any).productVariant?.create?.({
     data: {
-      slug: s,
-      name: b.name || 'Sans nom',
-      description: b.description || null,
-      priceCents: parseInt(b.priceCents || b.price || 0, 10),
-      currency: b.currency || 'EUR',
-      images: b.images || [],
-      inventory: parseInt(b.inventory || 0, 10),
-      category: b.category || null,
-      active: b.active !== false,
+      productId: b.productId,
+      name: b.name,
+      sku: b.sku || null,
+      options: b.options || {},
+      priceCents: typeof b.priceCents === 'number' ? b.priceCents : null,
+      stock: typeof b.stock === 'number' ? b.stock : null,
+      images: Array.isArray(b.images) ? b.images : [],
+      order: typeof b.order === 'number' ? b.order : 0,
+      published: b.published !== false,
     },
   });
-  return NextResponse.json(product);
+  return NextResponse.json({ ok: true, variant: v });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try { await requireOrgMember(slug, ['owner', 'admin', 'editor']); } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 403 }); }
-  const url = new URL(req.url);
-  const id = url.searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
-  const b = await req.json();
+  const b = await req.json().catch(() => ({}));
+  if (!b.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   const data: any = {};
-  for (const k of ['name', 'description', 'priceCents', 'currency', 'images', 'inventory', 'category', 'active', 'variants']) {
+  for (const k of ['name', 'sku', 'options', 'priceCents', 'stock', 'images', 'order', 'published']) {
     if (b[k] !== undefined) data[k] = b[k];
   }
-  // Slug renaming uniquement si fourni explicitement
-  if (typeof b.slug === 'string' && b.slug.trim()) {
-    data.slug = slugify(b.slug);
-  }
   const db = await getTenantPrisma(slug);
-  const updated = await db.product.update({ where: { id }, data });
-  return NextResponse.json({ ok: true, product: updated });
+  const v = await (db as any).productVariant?.update?.({ where: { id: b.id }, data });
+  return NextResponse.json({ ok: true, variant: v });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -70,6 +59,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const id = url.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   const db = await getTenantPrisma(slug);
-  await db.product.delete({ where: { id } });
+  await (db as any).productVariant?.delete?.({ where: { id } });
   return NextResponse.json({ ok: true });
 }
